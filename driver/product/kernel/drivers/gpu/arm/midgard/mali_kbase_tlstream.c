@@ -269,8 +269,8 @@ static const struct tp_desc tp_desc_obj[] = {
 		KBASE_TL_NEW_CTX,
 		__stringify(KBASE_TL_NEW_CTX),
 		"object ctx is created",
-		"@pI",
-		"ctx,ctx_nr"
+		"@pII",
+		"ctx,ctx_nr,tgid"
 	},
 	{
 		KBASE_TL_NEW_GPU,
@@ -1329,11 +1329,12 @@ void kbase_tlstream_stats(u32 *bytes_collected, u32 *bytes_generated)
 
 /*****************************************************************************/
 
-void kbase_tlstream_tl_summary_new_ctx(void *context, u32 nr)
+void kbase_tlstream_tl_summary_new_ctx(void *context, u32 nr, u32 tgid)
 {
 	const u32     msg_id = KBASE_TL_NEW_CTX;
 	const size_t  msg_size =
-		sizeof(msg_id) + sizeof(u64) + sizeof(context) + sizeof(nr);
+		sizeof(msg_id) + sizeof(u64) + sizeof(context) + sizeof(nr) +
+		sizeof(tgid);
 	unsigned long flags;
 	char          *buffer;
 	size_t        pos = 0;
@@ -1349,6 +1350,9 @@ void kbase_tlstream_tl_summary_new_ctx(void *context, u32 nr)
 			buffer, pos, &context, sizeof(context));
 	pos = kbasep_tlstream_write_bytes(
 			buffer, pos, &nr, sizeof(nr));
+	pos = kbasep_tlstream_write_bytes(
+			buffer, pos, &tgid, sizeof(tgid));
+
 	KBASE_DEBUG_ASSERT(msg_size == pos);
 
 	kbasep_tlstream_msgbuf_release(TL_STREAM_TYPE_OBJ_SUMMARY, flags);
@@ -1487,11 +1491,12 @@ void kbase_tlstream_tl_summary_lifelink_as_gpu(void *as, void *gpu)
 
 /*****************************************************************************/
 
-void kbase_tlstream_tl_new_ctx(void *context, u32 nr)
+void kbase_tlstream_tl_new_ctx(void *context, u32 nr, u32 tgid)
 {
 	const u32     msg_id = KBASE_TL_NEW_CTX;
 	const size_t  msg_size =
-		sizeof(msg_id) + sizeof(u64) + sizeof(context) + sizeof(nr);
+		sizeof(msg_id) + sizeof(u64) + sizeof(context) + sizeof(nr) +
+		sizeof(tgid);
 	unsigned long flags;
 	char          *buffer;
 	size_t        pos = 0;
@@ -1507,6 +1512,8 @@ void kbase_tlstream_tl_new_ctx(void *context, u32 nr)
 			buffer, pos, &context, sizeof(context));
 	pos = kbasep_tlstream_write_bytes(
 			buffer, pos, &nr, sizeof(nr));
+	pos = kbasep_tlstream_write_bytes(
+			buffer, pos, &tgid, sizeof(tgid));
 	KBASE_DEBUG_ASSERT(msg_size == pos);
 
 	kbasep_tlstream_msgbuf_release(TL_STREAM_TYPE_OBJ, flags);

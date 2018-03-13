@@ -393,7 +393,8 @@ static void kbase_create_timeline_objects(struct kbase_context *kctx)
 	list_for_each_entry(element, &kbdev->kctx_list, link) {
 		kbase_tlstream_tl_summary_new_ctx(
 				element->kctx,
-				(u32)(element->kctx->id));
+				(u32)(element->kctx->id),
+				(u32)(element->kctx->tgid));
 	}
 	/* Before releasing the lock, reset body stream buffers.
 	 * This will prevent context creation message to be directed to both
@@ -775,7 +776,7 @@ copy_failed:
 			if (sizeof(*sn) != args_size)
 				goto bad_size;
 
-			if (sn->sset.basep_sset.mem_handle & ~PAGE_MASK) {
+			if (sn->sset.basep_sset.mem_handle.basep.handle & ~PAGE_MASK) {
 				dev_warn(kbdev->dev, "kbase_dispatch case KBASE_FUNC_SYNC: sn->sset.basep_sset.mem_handle: passed parameter is invalid");
 				ukh->ret = MALI_ERROR_FUNCTION_FAILED;
 				break;
@@ -1184,6 +1185,32 @@ copy_failed:
 			break;
 		}
 
+	case KBASE_FUNC_SOFT_EVENT_UPDATE:
+		{
+			struct kbase_uk_soft_event_update *update = args;
+
+			if (sizeof(*update) != args_size)
+				goto bad_size;
+
+			if (((update->new_status != BASE_JD_SOFT_EVENT_SET) &&
+			    (update->new_status != BASE_JD_SOFT_EVENT_RESET)) ||
+			    (update->flags != 0))
+				goto out_bad;
+
+			if (kbasep_write_soft_event_status(
+						kctx, update->evt,
+						update->new_status) != 0) {
+				ukh->ret = MALI_ERROR_FUNCTION_FAILED;
+				break;
+			}
+
+			if (update->new_status == BASE_JD_SOFT_EVENT_SET)
+				kbasep_complete_triggered_soft_events(
+						kctx, update->evt);
+
+			break;
+		}
+
 	default:
 		dev_err(kbdev->dev, "unknown ioctl %u", id);
 		goto out_bad;
@@ -1319,7 +1346,8 @@ static int kbase_open(struct inode *inode, struct file *filp)
 #ifdef CONFIG_MALI_MIPE_ENABLED
 			kbase_tlstream_tl_new_ctx(
 					element->kctx,
-					(u32)(element->kctx->id));
+					(u32)(element->kctx->id),
+					(u32)(element->kctx->tgid));
 #endif
 			mutex_unlock(&kbdev->kctx_list_lock);
 		} else {
@@ -1978,6 +2006,70 @@ static ssize_t set_core_mask(struct device *dev, struct device_attribute *attr, 
  * Writing to it will set the current core mask.
  */
 static DEVICE_ATTR(core_mask, S_IRUGO | S_IWUSR, show_core_mask, set_core_mask);
+
+/**
+ * set_soft_event_timeout() - Store callback for the soft_event_timeout sysfs
+ * file.
+ *
+ * @dev: The device this sysfs file is for.
+ * @attr: The attributes of the sysfs file.
+ * @buf: The value written to the sysfs file.
+ * @count: The number of bytes written to the sysfs file.
+ *
+ * This allows setting the timeout for software event jobs. Waiting jobs will
+ * be cancelled after this period expires. This is expressed in milliseconds.
+ *
+ * Return: count if the function succeeded. An error code on failure.
+ */
+static ssize_t set_soft_event_timeout(struct device *dev,
+				      struct device_attribute *attr,
+				      const char *buf, size_t count)
+{
+	struct kbase_device *kbdev;
+	int soft_event_timeout_ms;
+
+	kbdev = to_kbase_device(dev);
+	if (!kbdev)
+		return -ENODEV;
+
+	if ((kstrtoint(buf, 0, &soft_event_timeout_ms) != 0) ||
+	    (soft_event_timeout_ms <= 0))
+		return -EINVAL;
+
+	atomic_set(&kbdev->js_data.soft_event_timeout_ms,
+		   soft_event_timeout_ms);
+
+	return count;
+}
+
+/**
+ * show_soft_event_timeout() - Show callback for the soft_event_timeout sysfs
+ * file.
+ *
+ * This will return the timeout for the software event jobs.
+ *
+ * @dev: The device this sysfs file is for.
+ * @attr: The attributes of the sysfs file.
+ * @buf: The output buffer for the sysfs file contents.
+ *
+ * Return: The number of bytes output to buf.
+ */
+static ssize_t show_soft_event_timeout(struct device *dev,
+				       struct device_attribute *attr,
+				       char * const buf)
+{
+	struct kbase_device *kbdev;
+
+	kbdev = to_kbase_device(dev);
+	if (!kbdev)
+		return -ENODEV;
+
+	return scnprintf(buf, PAGE_SIZE, "%i\n",
+			 atomic_read(&kbdev->js_data.soft_event_timeout_ms));
+}
+
+static DEVICE_ATTR(soft_event_timeout, S_IRUGO | S_IWUSR,
+		   show_soft_event_timeout, set_soft_event_timeout);
 
 /** Store callback for the @c js_timeouts sysfs file.
  *
@@ -3330,7 +3422,9 @@ static int kbase_common_device_init(struct kbase_device *kbdev)
 		inited_backend_late = (1u << 12),
 		inited_device = (1u << 13),
 		inited_vinstr = (1u << 19),
+#ifndef CONFIG_MALI_PRFCNT_SET_SECONDARY
 		inited_ipa = (1u << 20),
+#endif /* CONFIG_MALI_PRFCNT_SET_SECONDARY */
 		inited_job_fault = (1u << 21)
 	};
 
@@ -3460,6 +3554,7 @@ static int kbase_common_device_init(struct kbase_device *kbdev)
 
 	inited |= inited_vinstr;
 
+#ifndef CONFIG_MALI_PRFCNT_SET_SECONDARY
 	kbdev->ipa_ctx = kbase_ipa_init(kbdev);
 	if (!kbdev->ipa_ctx) {
 		dev_err(kbdev->dev, "Can't initialize IPA\n");
@@ -3467,6 +3562,7 @@ static int kbase_common_device_init(struct kbase_device *kbdev)
 	}
 
 	inited |= inited_ipa;
+#endif /* CONFIG_MALI_PRFCNT_SET_SECONDARY */
 
 	err = kbase_debug_job_fault_dev_init(kbdev);
 	if (err)
@@ -3512,8 +3608,10 @@ out_misc:
 out_partial:
 	if (inited & inited_job_fault)
 		kbase_debug_job_fault_dev_term(kbdev);
+#ifndef CONFIG_MALI_PRFCNT_SET_SECONDARY
 	if (inited & inited_ipa)
 		kbase_ipa_term(kbdev->ipa_ctx);
+#endif /* CONFIG_MALI_PRFCNT_SET_SECONDARY */
 	if (inited & inited_vinstr)
 		kbase_vinstr_term(kbdev->vinstr_ctx);
 #ifdef CONFIG_MALI_DEVFREQ
@@ -3563,6 +3661,7 @@ static struct attribute *kbase_attrs[] = {
 	&dev_attr_force_replay.attr,
 #endif
 	&dev_attr_js_timeouts.attr,
+	&dev_attr_soft_event_timeout.attr,
 	&dev_attr_gpuinfo.attr,
 	&dev_attr_dvfs_period.attr,
 	&dev_attr_pm_poweroff.attr,
@@ -3695,12 +3794,16 @@ static int kbase_platform_device_probe(struct platform_device *pdev)
 		}
 	}
 
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 7, 0)) && defined(CONFIG_OF) \
-			&& defined(CONFIG_PM_OPP)
+#if defined(CONFIG_OF) && defined(CONFIG_PM_OPP)
 	/* Register the OPPs if they are available in device tree */
-	if (of_init_opp_table(kbdev->dev) < 0)
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 4, 0))
+	err = dev_pm_opp_of_add_table(kbdev->dev);
+#elif (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 7, 0))
+	err = of_init_opp_table(kbdev->dev);
+#endif /* LINUX_VERSION_CODE */
+	if (err)
 		dev_dbg(kbdev->dev, "OPP table not found\n");
-#endif
+#endif /* CONFIG_OF && CONFIG_PM_OPP */
 
 
 	err = kbase_common_device_init(kbdev);
@@ -3737,7 +3840,9 @@ out_bl_core_register:
 out_sysfs:
 	kbase_common_device_remove(kbdev);
 out_common_init:
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 19, 0))
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 4, 0))
+	dev_pm_opp_of_remove_table(kbdev->dev);
+#elif (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 19, 0))
 	of_free_opp_table(kbdev->dev);
 #endif
 	clk_disable_unprepare(kbdev->clock);
@@ -3770,7 +3875,9 @@ out:
 static int kbase_common_device_remove(struct kbase_device *kbdev)
 {
 	kbase_debug_job_fault_dev_term(kbdev);
+#ifndef CONFIG_MALI_PRFCNT_SET_SECONDARY
 	kbase_ipa_term(kbdev->ipa_ctx);
+#endif /* CONFIG_MALI_PRFCNT_SET_SECONDARY */
 	kbase_vinstr_term(kbdev->vinstr_ctx);
 	sysfs_remove_group(&kbdev->dev->kobj, &kbase_attr_group);
 

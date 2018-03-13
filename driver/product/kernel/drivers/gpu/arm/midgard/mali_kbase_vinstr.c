@@ -31,6 +31,10 @@
 #include <mali_kbase_hwcnt_reader.h>
 #include <mali_kbase_mem_linux.h>
 
+#ifdef CONFIG_MALI_MIPE_ENABLED
+#include <mali_kbase_tlstream.h>
+#endif
+
 /*****************************************************************************/
 
 /* Hwcnt reader API version */
@@ -309,6 +313,8 @@ static void kbasep_vinstr_unmap_kernel_dump_buffer(
  */
 static int kbasep_vinstr_create_kctx(struct kbase_vinstr_context *vinstr_ctx)
 {
+	struct kbase_device *kbdev = vinstr_ctx->kbdev;
+	struct kbasep_kctx_list_element *element;
 	int err;
 
 	vinstr_ctx->kctx = kbase_create_context(vinstr_ctx->kbdev, true);
@@ -324,10 +330,42 @@ static int kbasep_vinstr_create_kctx(struct kbase_vinstr_context *vinstr_ctx)
 		return err;
 	}
 
+	/* Add kernel context to list of contexts associated with device. */
+	element = kzalloc(sizeof(*element), GFP_KERNEL);
+	if (element) {
+		element->kctx = vinstr_ctx->kctx;
+		mutex_lock(&kbdev->kctx_list_lock);
+		list_add(&element->link, &kbdev->kctx_list);
+
+#ifdef CONFIG_MALI_MIPE_ENABLED
+		/* Inform timeline client about new context.
+		 * Do this while holding the lock to avoid tracepoint
+		 * being created in both body and summary stream. */
+		kbase_tlstream_tl_new_ctx(
+				vinstr_ctx->kctx,
+				(u32)(vinstr_ctx->kctx->id),
+				(u32)(vinstr_ctx->kctx->tgid));
+#endif
+		mutex_unlock(&kbdev->kctx_list_lock);
+	} else {
+		/* Don't treat this as a fail - just warn about it. */
+		dev_warn(kbdev->dev,
+				"couldn't add kctx to kctx_list\n");
+	}
+
 	err = enable_hwcnt(vinstr_ctx);
 	if (err) {
 		kbasep_vinstr_unmap_kernel_dump_buffer(vinstr_ctx);
 		kbase_destroy_context(vinstr_ctx->kctx);
+		if (element) {
+			mutex_lock(&kbdev->kctx_list_lock);
+			list_del(&element->link);
+			kfree(element);
+			mutex_unlock(&kbdev->kctx_list_lock);
+		}
+#ifdef CONFIG_MALI_MIPE_ENABLED
+		kbase_tlstream_tl_del_ctx(vinstr_ctx->kctx);
+#endif
 		vinstr_ctx->kctx = NULL;
 		return err;
 	}
@@ -340,6 +378,15 @@ static int kbasep_vinstr_create_kctx(struct kbase_vinstr_context *vinstr_ctx)
 		disable_hwcnt(vinstr_ctx);
 		kbasep_vinstr_unmap_kernel_dump_buffer(vinstr_ctx);
 		kbase_destroy_context(vinstr_ctx->kctx);
+		if (element) {
+			mutex_lock(&kbdev->kctx_list_lock);
+			list_del(&element->link);
+			kfree(element);
+			mutex_unlock(&kbdev->kctx_list_lock);
+		}
+#ifdef CONFIG_MALI_MIPE_ENABLED
+		kbase_tlstream_tl_del_ctx(vinstr_ctx->kctx);
+#endif
 		vinstr_ctx->kctx = NULL;
 		return -EFAULT;
 	}
@@ -353,11 +400,36 @@ static int kbasep_vinstr_create_kctx(struct kbase_vinstr_context *vinstr_ctx)
  */
 static void kbasep_vinstr_destroy_kctx(struct kbase_vinstr_context *vinstr_ctx)
 {
+	struct kbase_device             *kbdev = vinstr_ctx->kbdev;
+	struct kbasep_kctx_list_element *element;
+	struct kbasep_kctx_list_element *tmp;
+	bool                            found = false;
+
 	/* Release hw counters dumping resources. */
 	vinstr_ctx->thread = NULL;
 	disable_hwcnt(vinstr_ctx);
 	kbasep_vinstr_unmap_kernel_dump_buffer(vinstr_ctx);
 	kbase_destroy_context(vinstr_ctx->kctx);
+
+	/* Remove kernel context from the device's contexts list. */
+	mutex_lock(&kbdev->kctx_list_lock);
+	list_for_each_entry_safe(element, tmp, &kbdev->kctx_list, link) {
+		if (element->kctx == vinstr_ctx->kctx) {
+			list_del(&element->link);
+			kfree(element);
+			found = true;
+		}
+	}
+	mutex_unlock(&kbdev->kctx_list_lock);
+
+	if (!found)
+		dev_warn(kbdev->dev, "kctx not in kctx_list\n");
+
+#ifdef CONFIG_MALI_MIPE_ENABLED
+	/* Inform timeline client about context destruction. */
+	kbase_tlstream_tl_del_ctx(vinstr_ctx->kctx);
+#endif
+
 	vinstr_ctx->kctx = NULL;
 }
 

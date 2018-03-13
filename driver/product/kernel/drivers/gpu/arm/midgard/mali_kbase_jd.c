@@ -1,6 +1,6 @@
 /*
  *
- * (C) COPYRIGHT 2010-2015 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2010-2016 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -98,9 +98,6 @@ static int jd_run_atom(struct kbase_jd_atom *katom)
 		} else if (kbase_process_soft_job(katom) == 0) {
 			kbase_finish_soft_job(katom);
 			katom->status = KBASE_JD_ATOM_STATE_COMPLETED;
-		} else {
-			/* The job has not completed */
-			list_add_tail(&katom->dep_item[0], &kctx->waiting_soft_jobs);
 		}
 		return 0;
 	}
@@ -223,13 +220,11 @@ static int kbase_jd_user_buf_map(struct kbase_context *kctx,
 
 	pages = alloc->imported.user_buf.pages;
 
-	down_read(&owner->mm->mmap_sem);
 	pinned_pages = get_user_pages(owner, owner->mm,
 			address,
 			alloc->imported.user_buf.nr_pages,
 			reg->flags & KBASE_REG_GPU_WR,
 			0, pages, NULL);
-	up_read(&owner->mm->mmap_sem);
 
 	if (pinned_pages <= 0)
 		return pinned_pages;
@@ -568,6 +563,9 @@ static int kbase_jd_pre_external_resources(struct kbase_jd_atom *katom, const st
 	}
 #endif				/* CONFIG_KDS */
 
+	/* Take the processes mmap lock */
+	down_read(&current->mm->mmap_sem);
+
 	/* need to keep the GPU VM locked while we set up UMM buffers */
 	kbase_gpu_vm_lock(katom->kctx);
 	for (res_no = 0; res_no < katom->nr_extres; res_no++) {
@@ -596,6 +594,11 @@ static int kbase_jd_pre_external_resources(struct kbase_jd_atom *katom, const st
 		/* decide what needs to happen for this resource */
 		switch (reg->gpu_alloc->type) {
 		case BASE_MEM_IMPORT_TYPE_USER_BUFFER: {
+			if (reg->gpu_alloc->imported.user_buf.owner->mm
+					!= current->mm) {
+				err_ret_val = -EINVAL;
+				goto failed_loop;
+			}
 			reg->gpu_alloc->imported.user_buf.current_mapping_usage_count++;
 			if (1 == reg->gpu_alloc->imported.user_buf.current_mapping_usage_count) {
 					/* use a local variable to not pollute
@@ -673,6 +676,9 @@ static int kbase_jd_pre_external_resources(struct kbase_jd_atom *katom, const st
 	/* drop the vm lock before we call into kds */
 	kbase_gpu_vm_unlock(katom->kctx);
 
+	/* Release the processes mmap lock */
+	up_read(&current->mm->mmap_sem);
+
 #ifdef CONFIG_KDS
 	if (kds_res_count) {
 		int wait_failed;
@@ -704,6 +710,8 @@ static int kbase_jd_pre_external_resources(struct kbase_jd_atom *katom, const st
 
 #ifdef CONFIG_KDS
  failed_kds_setup:
+	/* Lock the processes mmap lock */
+	down_read(&current->mm->mmap_sem);
 
 	/* lock before we unmap */
 	kbase_gpu_vm_lock(katom->kctx);
@@ -736,6 +744,9 @@ static int kbase_jd_pre_external_resources(struct kbase_jd_atom *katom, const st
 		kbase_mem_phy_alloc_put(alloc);
 	}
 	kbase_gpu_vm_unlock(katom->kctx);
+
+	/* Release the processes mmap lock */
+	up_read(&current->mm->mmap_sem);
 
  early_err_out:
 	kfree(katom->extres);
@@ -952,6 +963,12 @@ bool jd_done_nolock(struct kbase_jd_atom *katom,
 			if (node->status == KBASE_JD_ATOM_STATE_COMPLETED)
 				list_add_tail(&node->dep_item[0], &completed_jobs);
 		}
+
+		/* Completing an atom might have freed up space
+		 * in the ringbuffer, but only on that slot. */
+		jsctx_ll_flush_to_rb(kctx,
+				katom->sched_priority,
+				katom->slot_nr);
 
 		/* Register a completed job as a disjoint event when the GPU
 		 * is in a disjoint state (ie. being reset or replaying jobs).
@@ -1271,8 +1288,7 @@ bool jd_submit_atom(struct kbase_context *kctx,
 			ret = jd_done_nolock(katom, NULL);
 			goto out;
 		}
-		/* The job has not yet completed */
-		list_add_tail(&katom->dep_item[0], &kctx->waiting_soft_jobs);
+
 		ret = false;
 	} else if ((katom->core_req & BASEP_JD_REQ_ATOM_TYPE) != BASE_JD_REQ_DEP) {
 		katom->status = KBASE_JD_ATOM_STATE_IN_JS;
@@ -1510,7 +1526,6 @@ void kbase_jd_done_worker(struct work_struct *data)
 
 		mutex_unlock(&js_kctx_info->ctx.jsctx_mutex);
 		mutex_unlock(&js_devdata->queue_mutex);
-		mutex_unlock(&jctx->lock);
 
 		spin_lock_irqsave(&js_devdata->runpool_irq.lock, flags);
 
@@ -1518,6 +1533,7 @@ void kbase_jd_done_worker(struct work_struct *data)
 		kbase_js_unpull(kctx, katom);
 
 		spin_unlock_irqrestore(&js_devdata->runpool_irq.lock, flags);
+		mutex_unlock(&jctx->lock);
 
 		return;
 	}
@@ -1874,6 +1890,7 @@ void kbase_jd_zap_context(struct kbase_context *kctx)
 	 * queued outside the job scheduler.
 	 */
 
+	hrtimer_cancel(&kctx->soft_event_timeout);
 	list_for_each_safe(entry, tmp, &kctx->waiting_soft_jobs) {
 		katom = list_entry(entry, struct kbase_jd_atom, dep_item[0]);
 		kbase_cancel_soft_job(katom);

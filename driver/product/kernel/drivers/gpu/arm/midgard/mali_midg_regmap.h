@@ -407,7 +407,9 @@
 #define GPU_STATUS_PRFCNT_ACTIVE           (1 << 2)	/* Set if the performance counters are active. */
 
 /* PRFCNT_CONFIG register values */
-#define PRFCNT_CONFIG_AS_SHIFT    4	/* address space bitmap starts from bit 4 of the register */
+#define PRFCNT_CONFIG_MODE_SHIFT      0 /* Counter mode position. */
+#define PRFCNT_CONFIG_AS_SHIFT        4 /* Address space bitmap position. */
+
 #define PRFCNT_CONFIG_MODE_OFF    0	/* The performance counters are disabled. */
 #define PRFCNT_CONFIG_MODE_MANUAL 1	/* The performance counters are enabled, but are only written out when a PRFCNT_SAMPLE command is issued using the GPU_COMMAND register. */
 #define PRFCNT_CONFIG_MODE_TILE   2	/* The performance counters are enabled, and are written out each time a tile finishes rendering. */

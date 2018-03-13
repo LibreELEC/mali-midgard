@@ -92,6 +92,19 @@ menuconfig MALI_EXPERT
 	  Enabling this option and modifying the default settings may produce a driver with performance or
 	  other limitations.
 
+config MALI_PRFCNT_SET_SECONDARY
+	bool "Use secondary set of performance counters"
+	depends on MALI_MIDGARD && MALI_EXPERT
+	default n
+	help
+	  Select this option to use secondary set of performance counters. Kernel
+	  features that depend on an access to the primary set of counters may
+	  become unavailable. Enabling this option will prevent power management
+	  from working optimally and may cause instrumentation tools to return
+	  bogus results.
+
+	  If unsure, say N.
+
 config MALI_DEBUG_SHADER_SPLIT_FS
 	bool "Allow mapping of shader cores via sysfs"
 	depends on MALI_MIDGARD && MALI_EXPERT

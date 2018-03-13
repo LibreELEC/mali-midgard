@@ -1,6 +1,6 @@
 /*
  *
- * (C) COPYRIGHT 2010-2015 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2010-2016 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -12,8 +12,6 @@
  * Boston, MA  02110-1301, USA.
  *
  */
-
-
 
 
 
@@ -437,12 +435,14 @@ void kbase_job_done(struct kbase_device *kbdev, u32 done)
 KBASE_EXPORT_TEST_API(kbase_job_done);
 
 static bool kbasep_soft_stop_allowed(struct kbase_device *kbdev,
-								u16 core_reqs)
+					struct kbase_jd_atom *katom)
 {
 	bool soft_stops_allowed = true;
 
-	if (kbase_hw_has_issue(kbdev, BASE_HW_ISSUE_8408)) {
-		if ((core_reqs & BASE_JD_REQ_T) != 0)
+	if (kbase_jd_katom_is_secure(katom)) {
+		soft_stops_allowed = false;
+	} else if (kbase_hw_has_issue(kbdev, BASE_HW_ISSUE_8408)) {
+		if ((katom->core_req & BASE_JD_REQ_T) != 0)
 			soft_stops_allowed = false;
 	}
 	return soft_stops_allowed;
@@ -486,7 +486,7 @@ void kbasep_job_slot_soft_or_hard_stop_do_action(struct kbase_device *kbdev,
 
 	if (action == JS_COMMAND_SOFT_STOP) {
 		bool soft_stop_allowed = kbasep_soft_stop_allowed(kbdev,
-								core_reqs);
+								target_katom);
 
 		if (!soft_stop_allowed) {
 #ifdef CONFIG_MALI_DEBUG
@@ -1044,7 +1044,7 @@ void kbase_job_check_enter_disjoint(struct kbase_device *kbdev, u32 action,
 	/* For soft-stop, don't enter if soft-stop not allowed, or isn't
 	 * causing disjoint */
 	if (hw_action == JS_COMMAND_SOFT_STOP &&
-			!(kbasep_soft_stop_allowed(kbdev, core_reqs) &&
+			!(kbasep_soft_stop_allowed(kbdev, target_katom) &&
 			  (action & JS_COMMAND_SW_CAUSES_DISJOINT)))
 		return;
 
@@ -1283,10 +1283,12 @@ static void kbasep_reset_timeout_worker(struct work_struct *data)
 	/* Restore the HW counters setup */
 	if (restore_hwc) {
 		struct kbase_context *kctx = kbdev->hwcnt.kctx;
+		u32 prfcnt_config = kctx->as_nr << PRFCNT_CONFIG_AS_SHIFT;
+
 
 		kbase_reg_write(kbdev, GPU_CONTROL_REG(PRFCNT_CONFIG),
-				(kctx->as_nr << PRFCNT_CONFIG_AS_SHIFT) |
-				PRFCNT_CONFIG_MODE_OFF, kctx);
+				prfcnt_config | PRFCNT_CONFIG_MODE_OFF, kctx);
+
 		kbase_reg_write(kbdev, GPU_CONTROL_REG(PRFCNT_BASE_LO),
 				hwcnt_setup.dump_buffer & 0xFFFFFFFF, kctx);
 		kbase_reg_write(kbdev, GPU_CONTROL_REG(PRFCNT_BASE_HI),
@@ -1308,8 +1310,8 @@ static void kbasep_reset_timeout_worker(struct work_struct *data)
 						hwcnt_setup.tiler_bm, kctx);
 
 		kbase_reg_write(kbdev, GPU_CONTROL_REG(PRFCNT_CONFIG),
-				(kctx->as_nr << PRFCNT_CONFIG_AS_SHIFT) |
-				PRFCNT_CONFIG_MODE_MANUAL, kctx);
+				prfcnt_config | PRFCNT_CONFIG_MODE_MANUAL,
+				kctx);
 
 		/* If HW has PRLAM-8186 we can now re-enable the tiler HW
 		 * counters dump */

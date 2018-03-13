@@ -1058,9 +1058,11 @@ static void kbase_pm_hw_issues_detect(struct kbase_device *kbdev)
 	if (kbase_hw_has_issue(kbdev, BASE_HW_ISSUE_10327))
 		kbdev->hw_quirks_sc |= SC_SDC_DISABLE_OQ_DISCARD;
 
+#ifdef CONFIG_MALI_PRFCNT_SET_SECONDARY
 	/* Enable alternative hardware counter selection if configured. */
-	if (DEFAULT_ALTERNATIVE_HWC)
+	if (!GPU_ID_IS_NEW_FORMAT(prod_id))
 		kbdev->hw_quirks_sc |= SC_ALT_COUNTERS;
+#endif
 
 	/* Needed due to MIDBASE-2795. ENABLE_TEXGRD_FLAGS. See PRLAM-10797. */
 	if (kbase_hw_has_issue(kbdev, BASE_HW_ISSUE_10797))

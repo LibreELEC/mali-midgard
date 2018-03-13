@@ -45,13 +45,6 @@
  * @{
  */
 
-#if !MALI_CUSTOMER_RELEASE
-/* This flag is set for internal builds so we can run tests without credentials. */
-#define KBASE_HWCNT_DUMP_BYPASS_ROOT 1
-#else
-#define KBASE_HWCNT_DUMP_BYPASS_ROOT 0
-#endif
-
 #include <linux/rbtree.h>
 
 /* Forward declaration of struct kbase_device */
@@ -105,7 +98,7 @@ struct kbase_pm_callback_conf {
 	 * The system integrator can decide whether to either do nothing, just switch off
 	 * the clocks to the GPU, or to completely power down the GPU.
 	 * The platform specific private pointer kbase_device::platform_context can be accessed and modified in here. It is the
-	 * platform \em callbacks responsiblity to initialize and terminate this pointer if used (see @ref kbase_platform_funcs_conf).
+	 * platform \em callbacks responsibility to initialize and terminate this pointer if used (see @ref kbase_platform_funcs_conf).
 	 */
 	void (*power_off_callback)(struct kbase_device *kbdev);
 
@@ -115,7 +108,7 @@ struct kbase_pm_callback_conf {
 	 * succeed.  The return value specifies whether the GPU was powered down since the call to power_off_callback.
 	 * If the GPU state has been lost then this function must return 1, otherwise it should return 0.
 	 * The platform specific private pointer kbase_device::platform_context can be accessed and modified in here. It is the
-	 * platform \em callbacks responsiblity to initialize and terminate this pointer if used (see @ref kbase_platform_funcs_conf).
+	 * platform \em callbacks responsibility to initialize and terminate this pointer if used (see @ref kbase_platform_funcs_conf).
 	 *
 	 * The return value of the first call to this function is ignored.
 	 *
@@ -160,7 +153,7 @@ struct kbase_pm_callback_conf {
 	 * The runtime calls can be triggered by calls from @ref power_off_callback and @ref power_on_callback.
 	 * Note: for linux the kernel must have CONFIG_PM_RUNTIME enabled to use this feature.
 	 *
-	 * @return 0 on success, else int erro code.
+	 * @return 0 on success, else int error code.
 	 */
 	 int (*power_runtime_init_callback)(struct kbase_device *kbdev);
 
@@ -203,8 +196,8 @@ struct kbase_pm_callback_conf {
 	 * Returning 0 will cause the runtime PM core to conduct a regular
 	 * autosuspend.
 	 *
-	 * This callback is optional and if not provided regular ausosuspend
-	 * will triggered.
+	 * This callback is optional and if not provided regular autosuspend
+	 * will be triggered.
 	 *
 	 * Note: The Linux kernel must have CONFIG_PM_RUNTIME enabled to use
 	 * this feature.

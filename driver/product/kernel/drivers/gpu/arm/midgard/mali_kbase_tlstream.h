@@ -107,13 +107,14 @@ void kbase_tlstream_stats(u32 *bytes_collected, u32 *bytes_generated);
  *                                     summary
  * @context: name of the context object
  * @nr:      context number
+ * @tgid:    thread Group Id
  *
  * Function emits a timeline message informing about context creation. Context
  * is created with context number (its attribute), that can be used to link
  * kbase context with userspace context.
  * This message is directed to timeline summary stream.
  */
-void kbase_tlstream_tl_summary_new_ctx(void *context, u32 nr);
+void kbase_tlstream_tl_summary_new_ctx(void *context, u32 nr, u32 tgid);
 
 /**
  * kbase_tlstream_tl_summary_new_gpu - create GPU object in timeline summary
@@ -178,12 +179,13 @@ void kbase_tlstream_tl_summary_lifelink_as_gpu(void *as, void *gpu);
  * kbase_tlstream_tl_new_ctx - create context object in timeline
  * @context: name of the context object
  * @nr:      context number
+ * @tgid:    thread Group Id
  *
  * Function emits a timeline message informing about context creation. Context
  * is created with context number (its attribute), that can be used to link
  * kbase context with userspace context.
  */
-void kbase_tlstream_tl_new_ctx(void *context, u32 nr);
+void kbase_tlstream_tl_new_ctx(void *context, u32 nr, u32 tgid);
 
 /**
  * kbase_tlstream_tl_new_atom - create atom object in timeline
