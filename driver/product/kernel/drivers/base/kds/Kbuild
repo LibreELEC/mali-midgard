@@ -1,5 +1,5 @@
 #
-# (C) COPYRIGHT 2012 ARM Limited. All rights reserved.
+# (C) COPYRIGHT 2012-2013, 2017 ARM Limited. All rights reserved.
 #
 # This program is free software and is provided to you under the terms of the
 # GNU General Public License version 2 as published by the Free Software
@@ -15,4 +15,3 @@
 
 
 obj-$(CONFIG_KDS) += kds.o
-obj-$(CONFIG_KDS_TEST) += kds_test.o

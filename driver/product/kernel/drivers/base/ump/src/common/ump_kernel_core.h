@@ -1,6 +1,6 @@
 /*
  *
- * (C) COPYRIGHT 2008-2013 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2008-2013, 2017 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -33,7 +33,7 @@
 #include <linux/kds.h>
 #endif
 #include <linux/ump-common.h>
-#include <ump/src/common/ump_kernel_descriptor_mapping.h>
+#include <common/ump_kernel_descriptor_mapping.h>
 
 /* forward decl */
 struct umpp_session;
