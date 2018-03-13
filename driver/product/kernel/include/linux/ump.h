@@ -1,19 +1,24 @@
 /*
  *
- * (C) COPYRIGHT 2008-2013, 2015 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2008-2013, 2015, 2017 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
  * Foundation, and any use by you of this program is subject to the terms
  * of such GNU licence.
  *
- * A copy of the licence is included with the program, and can also be obtained
- * from Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
- * Boston, MA  02110-1301, USA.
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, you can access it online at
+ * http://www.gnu.org/licenses/gpl-2.0.html.
+ *
+ * SPDX-License-Identifier: GPL-2.0
  *
  */
-
-
 
 
 
@@ -39,10 +44,6 @@
  * External representation of a UMP handle in kernel space.
  */
 typedef void * ump_dd_handle;
-
-#ifdef CONFIG_KDS
-#include <linux/kds.h>
-#endif
 
 #include <linux/ump-common.h>
 
@@ -163,19 +164,6 @@ UMP_KERNEL_API_EXPORT ump_alloc_flags ump_dd_allocation_flags_get(const ump_dd_h
  * @return Returns the secure ID for the specified UMP memory.
  */
 UMP_KERNEL_API_EXPORT ump_secure_id ump_dd_secure_id_get(const ump_dd_handle mem);
-
-#ifdef CONFIG_KDS
-/**
- * Retrieve the KDS resource for the specified UMP memory.
- *
- * The KDS resource should be used to synchronize access to the UMP allocation.
- * See the KDS API for how to do that.
- *
- * @param mem Handle to the UMP memory to query.
- * @return Pointer to the KDS resource controlling access to the UMP memory.
- */
-UMP_KERNEL_API_EXPORT struct kds_resource * ump_dd_kds_resource_get(const ump_dd_handle mem);
-#endif
 
 /**
  * Retrieves a handle to allocated UMP memory.
