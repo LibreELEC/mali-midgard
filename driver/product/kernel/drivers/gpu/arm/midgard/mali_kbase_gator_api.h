@@ -1,6 +1,6 @@
 /*
  *
- * (C) COPYRIGHT ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2014-2015 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -121,7 +121,6 @@ enum hwc_type {
 };
 
 struct kbase_gator_hwcnt_info {
-
 	/* Passed from Gator to kbase */
 
 	/* the bitmask of enabled hardware counters for each counter block */
