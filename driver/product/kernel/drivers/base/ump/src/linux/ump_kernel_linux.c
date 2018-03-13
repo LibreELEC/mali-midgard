@@ -535,7 +535,7 @@ void ump_import_module_unregister(enum ump_external_memory_type type)
 	mutex_unlock(&import_list_lock);
 }
 
-static struct ump_import_handler * import_handler_get(unsigned int type_id)
+static struct ump_import_handler * import_handler_get(int type_id)
 {
 	enum ump_external_memory_type type;
 	struct ump_import_handler * handler;
