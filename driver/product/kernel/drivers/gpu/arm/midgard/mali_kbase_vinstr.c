@@ -1,6 +1,6 @@
 /*
  *
- * (C) COPYRIGHT 2011-2015 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2011-2016 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -30,10 +30,7 @@
 #include <mali_kbase.h>
 #include <mali_kbase_hwcnt_reader.h>
 #include <mali_kbase_mem_linux.h>
-
-#ifdef CONFIG_MALI_MIPE_ENABLED
 #include <mali_kbase_tlstream.h>
-#endif
 
 /*****************************************************************************/
 
@@ -337,7 +334,6 @@ static int kbasep_vinstr_create_kctx(struct kbase_vinstr_context *vinstr_ctx)
 		mutex_lock(&kbdev->kctx_list_lock);
 		list_add(&element->link, &kbdev->kctx_list);
 
-#ifdef CONFIG_MALI_MIPE_ENABLED
 		/* Inform timeline client about new context.
 		 * Do this while holding the lock to avoid tracepoint
 		 * being created in both body and summary stream. */
@@ -345,7 +341,7 @@ static int kbasep_vinstr_create_kctx(struct kbase_vinstr_context *vinstr_ctx)
 				vinstr_ctx->kctx,
 				(u32)(vinstr_ctx->kctx->id),
 				(u32)(vinstr_ctx->kctx->tgid));
-#endif
+
 		mutex_unlock(&kbdev->kctx_list_lock);
 	} else {
 		/* Don't treat this as a fail - just warn about it. */
@@ -363,9 +359,7 @@ static int kbasep_vinstr_create_kctx(struct kbase_vinstr_context *vinstr_ctx)
 			kfree(element);
 			mutex_unlock(&kbdev->kctx_list_lock);
 		}
-#ifdef CONFIG_MALI_MIPE_ENABLED
 		kbase_tlstream_tl_del_ctx(vinstr_ctx->kctx);
-#endif
 		vinstr_ctx->kctx = NULL;
 		return err;
 	}
@@ -384,9 +378,7 @@ static int kbasep_vinstr_create_kctx(struct kbase_vinstr_context *vinstr_ctx)
 			kfree(element);
 			mutex_unlock(&kbdev->kctx_list_lock);
 		}
-#ifdef CONFIG_MALI_MIPE_ENABLED
 		kbase_tlstream_tl_del_ctx(vinstr_ctx->kctx);
-#endif
 		vinstr_ctx->kctx = NULL;
 		return -EFAULT;
 	}
@@ -425,10 +417,8 @@ static void kbasep_vinstr_destroy_kctx(struct kbase_vinstr_context *vinstr_ctx)
 	if (!found)
 		dev_warn(kbdev->dev, "kctx not in kctx_list\n");
 
-#ifdef CONFIG_MALI_MIPE_ENABLED
 	/* Inform timeline client about context destruction. */
 	kbase_tlstream_tl_del_ctx(vinstr_ctx->kctx);
-#endif
 
 	vinstr_ctx->kctx = NULL;
 }

@@ -1,6 +1,6 @@
 /*
  *
- * (C) COPYRIGHT 2011-2015 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2011-2016 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -25,9 +25,13 @@
 #include <linux/syscalls.h>
 #include "mali_kbase_sync.h"
 #endif
+#include <mali_base_kernel.h>
 #include <mali_kbase_hwaccess_time.h>
+#include <mali_kbase_mem_linux.h>
 #include <linux/version.h>
 #include <linux/ktime.h>
+#include <linux/pfn.h>
+#include <linux/sched.h>
 
 /* Mask to check cache alignment of data structures */
 #define KBASE_CACHE_ALIGNMENT_MASK		((1<<L1_CACHE_SHIFT)-1)
@@ -506,6 +510,448 @@ static void kbasep_soft_event_cancel_job(struct kbase_jd_atom *katom)
 		kbase_js_sched_all(katom->kctx->kbdev);
 }
 
+struct kbase_debug_copy_buffer {
+	u64 size;
+	struct page **pages;
+	int nr_pages;
+	u64 offset;
+};
+
+static void kbase_debug_copy_finish(struct kbase_jd_atom *katom)
+{
+	struct kbase_debug_copy_buffer *buffers =
+			(struct kbase_debug_copy_buffer *)(uintptr_t)katom->jc;
+	unsigned int i;
+	unsigned int nr = katom->nr_extres;
+
+	if (!buffers)
+		return;
+
+	for (i = 0; i < nr; i++) {
+		int p;
+
+		if (!buffers[i].pages)
+			break;
+		for (p = 0; p < buffers[i].nr_pages; p++) {
+			struct page *pg = buffers[i].pages[p];
+
+			if (pg)
+				put_page(pg);
+		}
+		kfree(buffers[i].pages);
+	}
+	kfree(buffers);
+
+	katom->jc = 0;
+}
+
+static int kbase_debug_copy_prepare(struct kbase_jd_atom *katom)
+{
+	struct kbase_debug_copy_buffer *buffers;
+	struct base_jd_debug_copy_buffer *user_buffers = NULL;
+	unsigned int i;
+	unsigned int nr = katom->nr_extres;
+	int ret = 0;
+	void __user *user_structs = (void __user *)(uintptr_t)katom->jc;
+
+	if (!user_structs)
+		return -EINVAL;
+
+	buffers = kmalloc_array(nr, sizeof(*buffers), GFP_KERNEL);
+	if (!buffers) {
+		ret = -ENOMEM;
+		katom->jc = 0;
+		goto out_cleanup;
+	}
+	katom->jc = (u64)(uintptr_t)buffers;
+
+	user_buffers = kmalloc_array(nr, sizeof(*user_buffers), GFP_KERNEL);
+
+	if (!user_buffers) {
+		ret = -ENOMEM;
+		goto out_cleanup;
+	}
+
+	if (copy_from_user(user_buffers, user_structs,
+			sizeof(*user_buffers)*nr)) {
+		ret = -EINVAL;
+		goto out_cleanup;
+	}
+
+	down_read(&current->mm->mmap_sem);
+	for (i = 0; i < nr; i++) {
+		u64 addr = user_buffers[i].address;
+		u64 page_addr = addr & PAGE_MASK;
+		u64 end_page_addr = addr + user_buffers[i].size - 1;
+		u64 last_page_addr = end_page_addr & PAGE_MASK;
+		int nr_pages = (last_page_addr-page_addr)/PAGE_SIZE+1;
+		int pinned_pages;
+
+		if (!user_buffers[i].address) {
+			memset(&buffers[i], 0,
+					sizeof(struct kbase_debug_copy_buffer));
+			continue;
+		}
+
+		buffers[i].nr_pages = nr_pages;
+		buffers[i].offset = addr & ~PAGE_MASK;
+		buffers[i].size = user_buffers[i].size;
+
+		buffers[i].pages = kcalloc(nr_pages, sizeof(struct page *),
+				GFP_KERNEL);
+		if (!buffers[i].pages) {
+			ret = -ENOMEM;
+			goto out_unlock;
+		}
+
+		pinned_pages = get_user_pages(current, current->mm, page_addr,
+					nr_pages,
+					1, /* Write */
+					0, /* No force */
+					buffers[i].pages,
+					NULL);
+		if (pinned_pages < 0) {
+			ret = pinned_pages;
+			goto out_unlock;
+		}
+		if (pinned_pages != nr_pages) {
+			ret = -EINVAL;
+			goto out_unlock;
+		}
+	}
+	up_read(&current->mm->mmap_sem);
+
+	kfree(user_buffers);
+
+	return ret;
+
+out_unlock:
+	up_read(&current->mm->mmap_sem);
+
+out_cleanup:
+	kfree(buffers);
+	kfree(user_buffers);
+
+	/* Frees allocated memory for kbase_debug_copy_job struct, including
+	 * members, and sets jc to 0 */
+	kbase_debug_copy_finish(katom);
+
+	return ret;
+}
+
+static int kbase_debug_copy(struct kbase_jd_atom *katom)
+{
+	struct kbase_debug_copy_buffer *buffers =
+			(struct kbase_debug_copy_buffer *)(uintptr_t)katom->jc;
+	unsigned int i;
+
+	for (i = 0; i < katom->nr_extres; i++) {
+		u64 offset = buffers[i].offset;
+		u64 buffer_space = buffers[i].size;
+		int p;
+
+		for (p = 0; p < buffers[i].nr_pages; p++) {
+			struct page *pg = buffers[i].pages[p];
+			void *kpage = kmap(pg);
+			u64 page_space = PAGE_SIZE-offset;
+			u64 space;
+
+			if (page_space <= buffer_space)
+				space = page_space;
+			else
+				space = buffer_space;
+
+			/* Temporary - GPUCORE-1843 covers the implementation
+			 * of the actual copying. */
+			memset(kpage+offset, 0x4B, space);
+
+			if (!PageReserved(pg))
+				SetPageDirty(pg);
+
+			kunmap(pg);
+			offset = 0;
+			buffer_space -= space;
+		}
+	}
+
+	return 0;
+}
+
+static int kbase_jit_allocate_prepare(struct kbase_jd_atom *katom)
+{
+	__user void *data = (__user void *)(uintptr_t) katom->jc;
+	struct base_jit_alloc_info *info;
+	struct kbase_context *kctx = katom->kctx;
+	int ret;
+
+	/* Fail the job if there is no info structure */
+	if (!data) {
+		ret = -EINVAL;
+		goto fail;
+	}
+
+	/* Copy the information for safe access and future storage */
+	info = kzalloc(sizeof(*info), GFP_KERNEL);
+	if (!info) {
+		ret = -ENOMEM;
+		goto fail;
+	}
+
+	if (copy_from_user(info, data, sizeof(*info)) != 0) {
+		ret = -EINVAL;
+		goto free_info;
+	}
+
+	/* If the ID is zero or is in use then fail the job */
+	if ((info->id == 0) || (kctx->jit_alloc[info->id])) {
+		ret = -EINVAL;
+		goto free_info;
+	}
+
+	/* Set the jit_alloc to a non-zero value so we know the ID is in use */
+	kctx->jit_alloc[info->id] = (struct kbase_va_region *) -1;
+
+	/* Sanity check that the PA fits within the VA */
+	if (info->va_pages < info->commit_pages) {
+		ret = -EINVAL;
+		goto free_info;
+	}
+
+	/* Ensure the GPU address is correctly aligned */
+	if ((info->gpu_alloc_addr & 0x7) != 0) {
+		ret = -EINVAL;
+		goto free_info;
+	}
+
+	/* Replace the user pointer with our kernel allocated info structure */
+	katom->jc = (u64)(uintptr_t) info;
+
+	/*
+	 * Note:
+	 * The provided info->gpu_alloc_addr isn't validated here as
+	 * userland can cache allocations which means that even
+	 * though the region is valid it doesn't represent the
+	 * same thing it used to.
+	 *
+	 * Complete validation of va_pages, commit_pages and extent
+	 * isn't done here as it will be done during the call to
+	 * kbase_mem_alloc.
+	 */
+	return 0;
+
+free_info:
+	kfree(info);
+fail:
+	katom->jc = 0;
+	return ret;
+}
+
+static void kbase_jit_allocate_process(struct kbase_jd_atom *katom)
+{
+	struct kbase_context *kctx = katom->kctx;
+	struct base_jit_alloc_info *info;
+	struct kbase_va_region *reg;
+	struct kbase_vmap_struct mapping;
+	u64 *ptr;
+
+	info = (struct base_jit_alloc_info *) (uintptr_t) katom->jc;
+
+	/* Create a JIT allocation */
+	reg = kbase_jit_allocate(kctx, info);
+	if (!reg) {
+		katom->event_code = BASE_JD_EVENT_MEM_GROWTH_FAILED;
+		return;
+	}
+
+	/*
+	 * Write the address of the JIT allocation to the user provided
+	 * GPU allocation.
+	 */
+	ptr = kbase_vmap(kctx, info->gpu_alloc_addr, sizeof(*ptr),
+			&mapping);
+	if (!ptr) {
+		/*
+		 * Leave the allocation "live" as the JIT free jit will be
+		 * submitted anyway.
+		 */
+		katom->event_code = BASE_JD_EVENT_JOB_INVALID;
+		return;
+	}
+
+	*ptr = reg->start_pfn << PAGE_SHIFT;
+	kbase_vunmap(kctx, &mapping);
+
+	katom->event_code = BASE_JD_EVENT_DONE;
+
+	/*
+	 * Bind it to the user provided ID. Do this last so we can check for
+	 * the JIT free racing this JIT alloc job.
+	 */
+	kctx->jit_alloc[info->id] = reg;
+}
+
+static void kbase_jit_allocate_finish(struct kbase_jd_atom *katom)
+{
+	struct base_jit_alloc_info *info;
+
+	info = (struct base_jit_alloc_info *) (uintptr_t) katom->jc;
+	/* Free the info structure */
+	kfree(info);
+}
+
+static void kbase_jit_free_process(struct kbase_jd_atom *katom)
+{
+	struct kbase_context *kctx = katom->kctx;
+	u8 id = (u8) katom->jc;
+
+	/*
+	 * If the ID is zero or it is not in use yet then fail the job.
+	 */
+	if ((id == 0) || (kctx->jit_alloc[id] == NULL)) {
+		katom->event_code = BASE_JD_EVENT_JOB_INVALID;
+		return;
+	}
+
+	/*
+	 * If the ID is valid but the allocation request failed still succeed
+	 * this soft job but don't try and free the allocation.
+	 */
+	if (kctx->jit_alloc[id] != (struct kbase_va_region *) -1)
+		kbase_jit_free(kctx, kctx->jit_alloc[id]);
+
+	kctx->jit_alloc[id] = NULL;
+}
+
+static int kbase_ext_res_prepare(struct kbase_jd_atom *katom)
+{
+	__user struct base_external_resource_list *user_ext_res;
+	struct base_external_resource_list *ext_res;
+	u64 count = 0;
+	size_t copy_size;
+	int ret;
+
+	user_ext_res = (__user struct base_external_resource_list *)
+			(uintptr_t) katom->jc;
+
+	/* Fail the job if there is no info structure */
+	if (!user_ext_res) {
+		ret = -EINVAL;
+		goto fail;
+	}
+
+	if (copy_from_user(&count, &user_ext_res->count, sizeof(u64)) != 0) {
+		ret = -EINVAL;
+		goto fail;
+	}
+
+	/* Is the number of external resources in range? */
+	if (!count || count > BASE_EXT_RES_COUNT_MAX) {
+		ret = -EINVAL;
+		goto fail;
+	}
+
+	/* Copy the information for safe access and future storage */
+	copy_size = sizeof(*ext_res);
+	copy_size += sizeof(struct base_external_resource) * (count - 1);
+	ext_res = kzalloc(copy_size, GFP_KERNEL);
+	if (!ext_res) {
+		ret = -ENOMEM;
+		goto fail;
+	}
+
+	if (copy_from_user(ext_res, user_ext_res, copy_size) != 0) {
+		ret = -EINVAL;
+		goto free_info;
+	}
+
+	/*
+	 * Overwrite the count with the first value incase it was changed
+	 * after the fact.
+	 */
+	ext_res->count = count;
+
+	/*
+	 * Replace the user pointer with our kernel allocated
+	 * ext_res structure.
+	 */
+	katom->jc = (u64)(uintptr_t) ext_res;
+
+	return 0;
+
+free_info:
+	kfree(ext_res);
+fail:
+	return ret;
+}
+
+static void kbase_ext_res_process(struct kbase_jd_atom *katom, bool map)
+{
+	struct base_external_resource_list *ext_res;
+	int i;
+	bool failed = false;
+
+	ext_res = (struct base_external_resource_list *) (uintptr_t) katom->jc;
+	if (!ext_res)
+		goto failed_jc;
+
+	kbase_gpu_vm_lock(katom->kctx);
+
+	for (i = 0; i < ext_res->count; i++) {
+		u64 gpu_addr;
+
+		gpu_addr = ext_res->ext_res[i].ext_resource &
+				~BASE_EXT_RES_ACCESS_EXCLUSIVE;
+		if (map) {
+			if (!kbase_sticky_resource_acquire(katom->kctx,
+					gpu_addr))
+				goto failed_loop;
+		} else
+			if (!kbase_sticky_resource_release(katom->kctx, NULL,
+					gpu_addr, false))
+				failed = true;
+	}
+
+	/*
+	 * In the case of unmap we continue unmapping other resources in the
+	 * case of failure but will always report failure if _any_ unmap
+	 * request fails.
+	 */
+	if (failed)
+		katom->event_code = BASE_JD_EVENT_JOB_INVALID;
+	else
+		katom->event_code = BASE_JD_EVENT_DONE;
+
+	kbase_gpu_vm_unlock(katom->kctx);
+
+	return;
+
+failed_loop:
+	while (--i > 0) {
+		u64 gpu_addr;
+
+		gpu_addr = ext_res->ext_res[i].ext_resource &
+				~BASE_EXT_RES_ACCESS_EXCLUSIVE;
+
+		kbase_sticky_resource_release(katom->kctx, NULL, gpu_addr,
+				false);
+	}
+
+	katom->event_code = BASE_JD_EVENT_JOB_INVALID;
+	kbase_gpu_vm_unlock(katom->kctx);
+
+failed_jc:
+	return;
+}
+
+static void kbase_ext_res_finish(struct kbase_jd_atom *katom)
+{
+	struct base_external_resource_list *ext_res;
+
+	ext_res = (struct base_external_resource_list *) (uintptr_t) katom->jc;
+	/* Free the info structure */
+	kfree(ext_res);
+}
+
 int kbase_process_soft_job(struct kbase_jd_atom *katom)
 {
 	switch (katom->core_req & BASEP_JD_REQ_ATOM_TYPE) {
@@ -531,6 +977,20 @@ int kbase_process_soft_job(struct kbase_jd_atom *katom)
 		break;
 	case BASE_JD_REQ_SOFT_EVENT_RESET:
 		kbasep_soft_event_update(katom, BASE_JD_SOFT_EVENT_RESET);
+		break;
+	case BASE_JD_REQ_SOFT_DEBUG_COPY:
+		return kbase_debug_copy(katom);
+	case BASE_JD_REQ_SOFT_JIT_ALLOC:
+		kbase_jit_allocate_process(katom);
+		break;
+	case BASE_JD_REQ_SOFT_JIT_FREE:
+		kbase_jit_free_process(katom);
+		break;
+	case BASE_JD_REQ_SOFT_EXT_RES_MAP:
+		kbase_ext_res_process(katom, true);
+		break;
+	case BASE_JD_REQ_SOFT_EXT_RES_UNMAP:
+		kbase_ext_res_process(katom, false);
 		break;
 	}
 
@@ -606,7 +1066,10 @@ int kbase_prepare_soft_job(struct kbase_jd_atom *katom)
 		}
 		break;
 #endif				/* CONFIG_SYNC */
+	case BASE_JD_REQ_SOFT_JIT_ALLOC:
+		return kbase_jit_allocate_prepare(katom);
 	case BASE_JD_REQ_SOFT_REPLAY:
+	case BASE_JD_REQ_SOFT_JIT_FREE:
 		break;
 	case BASE_JD_REQ_SOFT_EVENT_WAIT:
 	case BASE_JD_REQ_SOFT_EVENT_SET:
@@ -614,6 +1077,12 @@ int kbase_prepare_soft_job(struct kbase_jd_atom *katom)
 		if (katom->jc == 0)
 			return -EINVAL;
 		break;
+	case BASE_JD_REQ_SOFT_DEBUG_COPY:
+		return kbase_debug_copy_prepare(katom);
+	case BASE_JD_REQ_SOFT_EXT_RES_MAP:
+		return kbase_ext_res_prepare(katom);
+	case BASE_JD_REQ_SOFT_EXT_RES_UNMAP:
+		return kbase_ext_res_prepare(katom);
 	default:
 		/* Unsupported soft-job */
 		return -EINVAL;
@@ -643,6 +1112,19 @@ void kbase_finish_soft_job(struct kbase_jd_atom *katom)
 		katom->fence = NULL;
 		break;
 #endif				/* CONFIG_SYNC */
+
+	case BASE_JD_REQ_SOFT_DEBUG_COPY:
+		kbase_debug_copy_finish(katom);
+		break;
+	case BASE_JD_REQ_SOFT_JIT_ALLOC:
+		kbase_jit_allocate_finish(katom);
+		break;
+	case BASE_JD_REQ_SOFT_EXT_RES_MAP:
+		kbase_ext_res_finish(katom);
+		break;
+	case BASE_JD_REQ_SOFT_EXT_RES_UNMAP:
+		kbase_ext_res_finish(katom);
+		break;
 	}
 }
 

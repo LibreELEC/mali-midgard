@@ -1,6 +1,6 @@
 /*
  *
- * (C) COPYRIGHT 2010-2015 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2010-2016 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -139,7 +139,6 @@ void kbase_jd_done_worker(struct work_struct *data);
 void kbase_jd_done(struct kbase_jd_atom *katom, int slot_nr, ktime_t *end_timestamp,
 		kbasep_js_atom_done_code done_code);
 void kbase_jd_cancel(struct kbase_device *kbdev, struct kbase_jd_atom *katom);
-void kbase_jd_evict(struct kbase_device *kbdev, struct kbase_jd_atom *katom);
 void kbase_jd_zap_context(struct kbase_context *kctx);
 bool jd_done_nolock(struct kbase_jd_atom *katom,
 		struct list_head *completed_jobs_ctx);

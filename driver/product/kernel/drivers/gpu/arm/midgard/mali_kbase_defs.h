@@ -401,6 +401,12 @@ struct kbase_jd_atom {
 #endif
 
 	struct list_head queue;
+
+	struct kbase_va_region *jit_addr_reg;
+
+	/* If non-zero, this indicates that the atom will fail with the set
+	 * event_code when the atom is processed. */
+	enum base_jd_event_code will_fail_event_code;
 };
 
 static inline bool kbase_jd_katom_is_secure(const struct kbase_jd_atom *katom)
@@ -481,6 +487,7 @@ typedef u32 kbase_as_poke_state;
 struct kbase_mmu_setup {
 	u64	transtab;
 	u64	memattr;
+	u64	transcfg;
 };
 
 /**
@@ -499,6 +506,7 @@ struct kbase_as {
 	enum kbase_mmu_fault_type fault_type;
 	u32 fault_status;
 	u64 fault_addr;
+	u64 fault_extra_addr;
 	struct mutex transaction_mutex;
 
 	struct kbase_mmu_setup current_setup;
@@ -881,7 +889,7 @@ struct kbase_device {
 	s8 nr_user_address_spaces;			  /**< Number of address spaces available to user contexts */
 
 	/* Structure used for instrumentation and HW counters dumping */
-	struct {
+	struct kbase_hwcnt {
 		/* The lock should be used when accessing any of the following members */
 		spinlock_t lock;
 
@@ -1028,6 +1036,14 @@ struct kbase_device {
 
 	/* system coherency mode  */
 	u32 system_coherency;
+	/* Flag to track when cci snoops have been enabled on the interface */
+	bool cci_snoop_enabled;
+
+	/* SMC function IDs to call into Trusted firmware to enable/disable
+	 * cache snooping. Value of 0 indicates that they are not used
+	 */
+	u32 snoop_enable_smc;
+	u32 snoop_disable_smc;
 
 	/* Secure operations */
 	struct kbase_secure_ops *secure_ops;
@@ -1056,6 +1072,9 @@ struct kbase_device {
 #endif
 	/* Boolean indicating if an IRQ flush during reset is in progress. */
 	bool irq_reset_flush;
+
+	/* list of inited sub systems. Used during terminate/error recovery */
+	u32 inited_subsys;
 };
 
 /* JSCTX ringbuffer size will always be a power of 2. The idx shift must be:
@@ -1063,16 +1082,16 @@ struct kbase_device {
    - <= 9 (buffer size 2^(9-1)=256) (technically, 10 works for the ringbuffer
 				but this is unnecessary as max atoms is 256)
  */
-#define JSCTX_RB_IDX_SHIFT (8)
+#define JSCTX_RB_IDX_SHIFT (8U)
 #if ((JSCTX_RB_IDX_SHIFT < 2) || ((3 * JSCTX_RB_IDX_SHIFT) >= 32))
 #error "Invalid ring buffer size for 32bit atomic."
 #endif
-#define JSCTX_RB_SIZE (1 << (JSCTX_RB_IDX_SHIFT - 1)) /* 1 bit for overflow */
-#define JSCTX_RB_SIZE_STORE (1 << JSCTX_RB_IDX_SHIFT)
-#define JSCTX_RB_MASK (JSCTX_RB_SIZE - 1)
-#define JSCTX_RB_MASK_STORE (JSCTX_RB_SIZE_STORE - 1)
+#define JSCTX_RB_SIZE (1U << (JSCTX_RB_IDX_SHIFT - 1U)) /* 1 bit for overflow */
+#define JSCTX_RB_SIZE_STORE (1U << JSCTX_RB_IDX_SHIFT)
+#define JSCTX_RB_MASK (JSCTX_RB_SIZE - 1U)
+#define JSCTX_RB_MASK_STORE (JSCTX_RB_SIZE_STORE - 1U)
 
-#define JSCTX_WR_OFFSET         (0)
+#define JSCTX_WR_OFFSET         (0U)
 #define JSCTX_RN_OFFSET         (JSCTX_WR_OFFSET   + JSCTX_RB_IDX_SHIFT)
 #define JSCTX_RD_OFFSET         (JSCTX_RN_OFFSET + JSCTX_RB_IDX_SHIFT)
 
@@ -1142,10 +1161,12 @@ struct kbase_context {
 	unsigned long api_version;
 	phys_addr_t pgd;
 	struct list_head event_list;
+	struct list_head event_coalesce_list;
 	struct mutex event_mutex;
 	atomic_t event_closed;
 	struct workqueue_struct *event_workq;
 	atomic_t event_count;
+	int event_coalesce_count;
 
 	bool is_compat;
 
@@ -1156,6 +1177,7 @@ struct kbase_context {
 
 	struct page *aliasing_sink_page;
 
+	struct mutex            mmu_lock;
 	struct mutex            reg_lock; /* To be converted to a rwlock? */
 	struct rb_root          reg_rbtree; /* Red-Black tree of GPU regions (live regions) */
 
@@ -1171,6 +1193,10 @@ struct kbase_context {
 	atomic_t         nonmapped_pages;
 
 	struct kbase_mem_pool mem_pool;
+
+	struct shrinker         reclaim;
+	struct list_head        evict_list;
+	struct mutex            evict_lock;
 
 	struct list_head waiting_soft_jobs;
 	spinlock_t waiting_soft_jobs_lock;
@@ -1198,6 +1224,8 @@ struct kbase_context {
 	 * All other flags must be added there */
 	spinlock_t         mm_update_lock;
 	struct mm_struct *process_mm;
+	/* End of the SAME_VA zone */
+	u64 same_va_end;
 
 #ifdef CONFIG_MALI_TRACE_TIMELINE
 	struct kbase_trace_kctx_timeline timeline;
@@ -1268,6 +1296,46 @@ struct kbase_context {
 
 	/* Waiting soft-jobs will fail when this timer expires */
 	struct hrtimer soft_event_timeout;
+
+	/* JIT allocation management */
+	struct kbase_va_region *jit_alloc[255];
+	struct list_head jit_active_head;
+	struct list_head jit_pool_head;
+	struct list_head jit_destroy_head;
+	struct mutex jit_lock;
+	struct work_struct jit_work;
+
+	/* External sticky resource management */
+	struct list_head ext_res_meta_head;
+};
+
+/**
+ * struct kbase_ctx_ext_res_meta - Structure which binds an external resource
+ *                                 to a @kbase_context.
+ * @ext_res_node:                  List head for adding the metadata to a
+ *                                 @kbase_context.
+ * @alloc:                         The physical memory allocation structure
+ *                                 which is mapped.
+ * @gpu_addr:                      The GPU virtual address the resource is
+ *                                 mapped to.
+ * @refcount:                      Refcount to keep track of the number of
+ *                                 active mappings.
+ *
+ * External resources can be mapped into multiple contexts as well as the same
+ * context multiple times.
+ * As kbase_va_region itself isn't refcounted we can't attach our extra
+ * information to it as it could be removed under our feet leaving external
+ * resources pinned.
+ * This metadata structure binds a single external resource to a single
+ * context, ensuring that per context refcount is tracked separately so it can
+ * be overridden when needed and abuses by the application (freeing the resource
+ * multiple times) don't effect the refcount of the physical allocation.
+ */
+struct kbase_ctx_ext_res_meta {
+	struct list_head ext_res_node;
+	struct kbase_mem_phy_alloc *alloc;
+	u64 gpu_addr;
+	u64 refcount;
 };
 
 enum kbase_reg_access_type {
@@ -1307,5 +1375,30 @@ static inline bool kbase_device_is_cpu_coherent(struct kbase_device *kbdev)
 
 /* Maximum number of times a job can be replayed */
 #define BASEP_JD_REPLAY_LIMIT 15
+
+/* JobDescriptorHeader - taken from the architecture specifications, the layout
+ * is currently identical for all GPU archs. */
+struct job_descriptor_header {
+	u32 exception_status;
+	u32 first_incomplete_task;
+	u64 fault_pointer;
+	u8 job_descriptor_size : 1;
+	u8 job_type : 7;
+	u8 job_barrier : 1;
+	u8 _reserved_01 : 1;
+	u8 _reserved_1 : 1;
+	u8 _reserved_02 : 1;
+	u8 _reserved_03 : 1;
+	u8 _reserved_2 : 1;
+	u8 _reserved_04 : 1;
+	u8 _reserved_05 : 1;
+	u16 job_index;
+	u16 job_dependency_index_1;
+	u16 job_dependency_index_2;
+	union {
+		u64 _64;
+		u32 _32;
+	} next_job;
+};
 
 #endif				/* _KBASE_DEFS_H_ */

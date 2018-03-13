@@ -1,5 +1,5 @@
 #
-# (C) COPYRIGHT 2010-2015 ARM Limited. All rights reserved.
+# (C) COPYRIGHT 2010-2016 ARM Limited. All rights reserved.
 #
 # This program is free software and is provided to you under the terms of the
 # GNU General Public License version 2 as published by the Free Software
@@ -33,9 +33,6 @@ for line in open(linux_config_file, 'r'):
 		# still allow for building kds_test module.
 		build_kds = 0
 
-if env['v'] != '1':
-	env['MAKECOMSTR'] = '[MAKE] ${SOURCE.dir}'
-
 src = [Glob('#kernel/drivers/base/kds/*.c'), Glob('#kernel/include/linux/*.h'), Glob('#kernel/drivers/base/kds/K*')]
 
 env.Append( CPPPATH = '#kernel/include' )
@@ -48,19 +45,19 @@ if env.GetOption('clean') :
 	if build_kds or (int(env['unit']) == 1):
 		env.Execute(Action("make clean", '[CLEAN] kds'))
 		cmd = env.Command('$STATIC_LIB_PATH/kds.ko', src, [])
-		env.ProgTarget('kds', cmd)
+		env.KernelObjTarget('kds', cmd)
 else:
 	# Build KDS module
 	if build_kds:
 		makeAction=Action("cd ${SOURCE.dir} && make kds && cp kds.ko $STATIC_LIB_PATH/", '$MAKECOMSTR')
 		cmd = env.Command('$STATIC_LIB_PATH/kds.ko', src, [makeAction])
-		env.ProgTarget('kds', cmd)
+		env.KernelObjTarget('kds', cmd)
 
 	# Build KDS test module
 	if int(env['unit']) == 1:
 		makeActionTest=Action("cd ${SOURCE.dir} && make kds_test && cp kds_test.ko $STATIC_LIB_PATH/", '$MAKECOMSTR')
 		cmdTest = env.Command('$STATIC_LIB_PATH/kds_test.ko', src, [makeActionTest])
-		env.ProgTarget('kds', cmdTest)
+		env.KernelObjTarget('kds', cmdTest)
 		if build_kds:
-			Depends(cmdTest, cmd)
+			env.Depends(cmdTest, cmd)
 
