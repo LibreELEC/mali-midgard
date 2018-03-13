@@ -1,5 +1,5 @@
 #
-# (C) COPYRIGHT 2013-2017 ARM Limited. All rights reserved.
+# (C) COPYRIGHT 2013-2018 ARM Limited. All rights reserved.
 #
 # This program is free software and is provided to you under the terms of the
 # GNU General Public License version 2 as published by the Free Software
@@ -46,8 +46,9 @@ for details.
 	  simultaneously, 0 otherwise.
 	- Value between 0 and 63 (including). If job throttle is enabled, this is one
 	  less than the number of cores that can be started simultaneously.
-- power_model : Sets the power model parameters. Two power models are currently
-  defined which include "mali-simple-power-model" and "mali-g71-power-model".
+- power_model : Sets the power model parameters. Three power models are currently
+  defined which include "mali-simple-power-model", "mali-g71-power-model" and
+	  "mali-g72-power-model".
 	- mali-simple-power-model: this model derives the GPU power usage based
 	  on the GPU voltage scaled by the system temperature. Note: it was
 	  designed for the Juno platform, and may not be suitable for others.
@@ -65,14 +66,16 @@ for details.
 		  the GPU
 		- temp-poll-interval-ms: the interval at which the system
 		  temperature is polled
-	- mali-g71-power-model: this model derives the GPU power usage based on
-	  performance counters, so is more accurate.
-		- compatible: Should be "arm,mali-g71-power-model"
+	- mali-g71-power-model / mali-g72-power-model: these models derive
+	  the GPU power usage based on performance counters, so they are more
+	  accurate.
+		- compatible: Should be "arm,mali-g71-power-model" /
+		  "arm,mali-g72-power-model"
 		- scale: the dynamic power calculated by the power model is
 		  scaled by a factor of "scale"/1000. This value should be
 		  chosen to match a particular implementation.
-	* Note: the kernel could use either of the 2 power models (simple and
-	  counter-based) at different points so care should be taken to configure
+	* Note: when IPA is used, two separate power models (simple and counter-based)
+	  are used at different points so care should be taken to configure
 	  both power models in the device tree (specifically dynamic-coefficient,
 	  static-coefficient and scale) to best match the platform.
 - system-coherency : Sets the coherency protocol to be used for coherent

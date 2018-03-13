@@ -41,7 +41,9 @@ bob_defaults {
 bob_alias {
     name: "kernel",
     srcs: [
+        "dma-buf-test-exporter",
         "mali_kbase",
+        "ump",
     ],
 }
 
