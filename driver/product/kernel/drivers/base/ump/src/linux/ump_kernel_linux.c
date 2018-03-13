@@ -1,6 +1,6 @@
 /*
  *
- * (C) COPYRIGHT 2008-2014 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2008-2014,2017 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -27,6 +27,7 @@
 #include <linux/cdev.h>              /* character device definitions */
 #include <linux/ioport.h>            /* request_mem_region */
 #include <linux/device.h>            /* class registration support */
+#include <linux/uaccess.h>
 
 #include <common/ump_kernel_core.h>
 
@@ -800,9 +801,6 @@ EXPORT_SYMBOL(ump_dd_size_get_64);
 EXPORT_SYMBOL(ump_dd_retain);
 EXPORT_SYMBOL(ump_dd_release);
 EXPORT_SYMBOL(ump_dd_create_from_phys_blocks_64);
-#ifdef CONFIG_KDS
-EXPORT_SYMBOL(ump_dd_kds_resource_get);
-#endif
 
 /* import API */
 EXPORT_SYMBOL(ump_import_module_register);

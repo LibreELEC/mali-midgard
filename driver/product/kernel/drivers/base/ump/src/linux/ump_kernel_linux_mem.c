@@ -1,6 +1,6 @@
 /*
  *
- * (C) COPYRIGHT 2008-2013, 2016 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2008-2013, 2016-2017 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -34,6 +34,12 @@
 #include <common/ump_kernel_core.h>
 #include <ump_arch.h>
 #include <common/ump_kernel_priv.h>
+
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 5, 0)
+#define phys_to_pfn_t(phys, flags) (phys >> PAGE_SHIFT)
+#else
+#include <linux/pfn_t.h>
+#endif
 
 static void umpp_vm_close(struct vm_area_struct *vma)
 {
@@ -222,7 +228,9 @@ int umpp_linux_mmap(struct file * filp, struct vm_area_struct * vma)
 				paddr = alloc->block_array[block_idx].addr;
 			}
 
-			err = vm_insert_mixed(vma, vma->vm_start + (i << PAGE_SHIFT), paddr >> PAGE_SHIFT);
+			err = vm_insert_mixed(vma,
+					vma->vm_start + (i << PAGE_SHIFT),
+					phys_to_pfn_t(paddr, 0));
 			paddr += PAGE_SIZE;
 		}
 

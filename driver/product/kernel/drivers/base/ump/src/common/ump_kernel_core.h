@@ -29,9 +29,6 @@
 #include <linux/cred.h>
 #include <asm/mmu_context.h>
 
-#ifdef CONFIG_KDS
-#include <linux/kds.h>
-#endif
 #include <linux/ump-common.h>
 #include <common/ump_kernel_descriptor_mapping.h>
 
@@ -98,10 +95,6 @@ typedef struct umpp_allocation
 
 	struct mutex     map_list_lock; /**< Lock protecting the map_list */
 	struct list_head map_list; /**< Tracks all CPU VA mappings of this allocation */
-
-#ifdef CONFIG_KDS
-	struct kds_resource kds_res; /**< The KDS resource controlling access to this allocation */
-#endif
 
 	void * backendData; /**< Physical memory backend meta-data */
 } umpp_allocation;

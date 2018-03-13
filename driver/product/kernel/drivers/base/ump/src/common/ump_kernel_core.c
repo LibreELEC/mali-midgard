@@ -1,6 +1,6 @@
 /*
  *
- * (C) COPYRIGHT 2008-2013 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2008-2013, 2017 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -142,10 +142,6 @@ ump_dd_handle ump_dd_allocate_64(uint64_t size, ump_alloc_flags flags, ump_dd_se
 	INIT_LIST_HEAD(&alloc->map_list);
 	atomic_set(&alloc->refcount, 1);
 
-#ifdef CONFIG_KDS
-	kds_resource_init(&alloc->kds_res);
-#endif
-
 	if (!(alloc->flags & UMP_PROT_SHAREABLE))
 	{
 		alloc->owner = get_current()->pid;
@@ -216,19 +212,6 @@ ump_secure_id ump_dd_secure_id_get(const ump_dd_handle mem)
 
 	return alloc->id;
 }
-
-#ifdef CONFIG_KDS
-struct kds_resource * ump_dd_kds_resource_get(const ump_dd_handle mem)
-{
-	umpp_allocation * alloc;
-
-	UMP_ASSERT(mem);
-
-	alloc = (umpp_allocation*)mem;
-
-	return &alloc->kds_res;
-}
-#endif
 
 ump_alloc_flags ump_dd_allocation_flags_get(const ump_dd_handle mem)
 {
@@ -352,14 +335,6 @@ void ump_dd_release(ump_dd_handle mem)
 
 	UMP_ASSERT(list_empty(&alloc->map_list));
 
-#ifdef CONFIG_KDS
-	if (kds_resource_term(&alloc->kds_res))
-	{
-		printk(KERN_ERR "ump_dd_release: kds_resource_term failed,"
-				"unable to release UMP allocation\n");
-		return;
-	}
-#endif
 	/* cleanup */
 	if (NULL != alloc->final_release_func)
 	{
@@ -676,9 +651,6 @@ UMP_KERNEL_API_EXPORT ump_dd_handle ump_dd_create_from_phys_blocks_64(const ump_
 
 	memcpy(alloc->block_array, blocks, sizeof(ump_dd_physical_block_64) * num_blocks);
 
-#ifdef CONFIG_KDS
-	kds_resource_init(&alloc->kds_res);
-#endif
 	alloc->size = size;
 	alloc->blocksCount = num_blocks;
 	alloc->flags = flags;

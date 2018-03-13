@@ -40,18 +40,35 @@ for details.
 	  simultaneously, 0 otherwise.
 	- Value between 0 and 63 (including). If job throttle is enabled, this is one
 	  less than the number of cores that can be started simultaneously.
-- power_model : Sets power model parameters. Note that this model was designed for the Juno
-	        platform, and may not be suitable for other platforms. A structure containing :
-	- compatible: Should be arm,mali-simple-power-model
-	- dynamic-coefficient: Coefficient, in pW/(Hz V^2), which is multiplied
-	  by v^2*f to calculate the dynamic power consumption.
-	- static-coefficient: Coefficient, in uW/V^3, which is multiplied by
-	  v^3 to calculate the static power consumption.
-	- ts: An array containing coefficients for the temperature scaling
-	  factor. This is used to scale the static power by a factor of
-	  tsf/1000000, where tsf = ts[3]*T^3 + ts[2]*T^2 + ts[1]*T + ts[0],
-	  and T = temperature in degrees.
-	- thermal-zone: A string identifying the thermal zone used for the GPU
+- power_model : Sets the power model parameters. Two power models are currently
+  defined which include "mali-simple-power-model" and "mali-g71-power-model".
+	- mali-simple-power-model: this model derives the GPU power usage based
+	  on the GPU voltage scaled by the system temperature. Note: it was
+	  designed for the Juno platform, and may not be suitable for others.
+		- compatible: Should be "arm,mali-simple-power-model"
+		- dynamic-coefficient: Coefficient, in pW/(Hz V^2), which is
+		  multiplied by v^2*f to calculate the dynamic power consumption.
+		- static-coefficient: Coefficient, in uW/V^3, which is
+		  multiplied by v^3 to calculate the static power consumption.
+		- ts: An array containing coefficients for the temperature
+		  scaling factor. This is used to scale the static power by a
+		  factor of tsf/1000000,
+		  where tsf = ts[3]*T^3 + ts[2]*T^2 + ts[1]*T + ts[0],
+		  and T = temperature in degrees.
+		- thermal-zone: A string identifying the thermal zone used for
+		  the GPU
+		- temp-poll-interval-ms: the interval at which the system
+		  temperature is polled
+	- mali-g71-power-model: this model derives the GPU power usage based on
+	  performance counters, so is more accurate.
+		- compatible: Should be "arm,mali-g71-power-model"
+		- scale: the dynamic power calculated by the power model is
+		  scaled by a factor of "scale"/1000. This value should be
+		  chosen to match a particular implementation.
+	* Note: the kernel could use either of the 2 power models (simple and
+	  counter-based) at different points so care should be taken to configure
+	  both power models in the device tree (specifically dynamic-coefficient,
+	  static-coefficient and scale) to best match the platform.
 - system-coherency : Sets the coherency protocol to be used for coherent
 		     accesses made from the GPU.
 		     If not set then no coherency is used.
@@ -86,7 +103,7 @@ gpu@0xfc010000 {
 	};
 	power_model@1 {
 		compatible = "arm,mali-g71-power-model";
-		scale = <15000>;
+		scale = <5>;
 	};
 };
 

@@ -25,11 +25,11 @@ if Glob('mali_fpga_sysctl/sconscript'):
 if Glob('dma_buf_lock/sconscript'):
 	SConscript('dma_buf_lock/sconscript')
 
-if Glob('kds/sconscript'):
-	SConscript('kds/sconscript')
-
 if Glob('ump/sconscript'):
 	SConscript('ump/sconscript')
+
+if Glob('kds/sconscript'):
+	SConscript('kds/sconscript')
 
 if Glob('dma_buf_test_exporter/sconscript'):
 	SConscript('dma_buf_test_exporter/sconscript')

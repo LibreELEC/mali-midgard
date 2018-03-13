@@ -18,6 +18,3 @@ Import('env')
 
 if env['backend'] == 'kernel' and int(env['kernel_modules']) == 1:
 	SConscript('drivers/sconscript')
-
-	if Glob('tests/sconscript'):
-		SConscript('tests/sconscript')

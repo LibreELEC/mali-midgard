@@ -1,5 +1,5 @@
 #
-# (C) COPYRIGHT 2008-2014 ARM Limited. All rights reserved.
+# (C) COPYRIGHT 2008-2014, 2017 ARM Limited. All rights reserved.
 #
 # This program is free software and is provided to you under the terms of the
 # GNU General Public License version 2 as published by the Free Software
@@ -68,8 +68,6 @@ ifeq ($(MALI_UNIT_TEST),1)
 	KBASE_PATH=$(ROOT)/kernel/drivers/gpu/arm/midgard
 	EXTRA_SYMBOLS+=$(KBASE_PATH)/tests/internal/src/kernel_assert_module/linux/Module.symvers
 endif
-KDS_PATH=$(ROOT)/kernel/drivers/base/kds
-EXTRA_SYMBOLS+=$(KDS_PATH)/Module.symvers
 
 all:
 	$(MAKE) ARCH=$(ARCH) -C $(KDIR) M=$(CURDIR) EXTRA_CFLAGS="$(EXTRA_CFLAGS) $(SCONS_CFLAGS)" CONFIG_UMP=m KBUILD_EXTRA_SYMBOLS="$(EXTRA_SYMBOLS)" modules
