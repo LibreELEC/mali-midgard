@@ -33,8 +33,6 @@ Optional:
 Documentation/devicetree/bindings/regulator/regulator.txt for details.
 - operating-points : Refer to Documentation/devicetree/bindings/power/opp.txt
 for details.
-- snoop_enable_smc : SMC function ID to enable CCI snooping on the GPU port(s).
-- snoop_disable_smc : SMC function ID to disable CCI snooping on the GPU port(s).
 - jm_config : For T860/T880. Sets job manager configuration. An array containing:
 	- 1 to override the TIMESTAMP value, 0 otherwise.
 	- 1 to override clock gate, forcing them to be always on, 0 otherwise.
@@ -64,6 +62,8 @@ for details.
 	      model is not found in the registered models list. If no model is specified here,
 	      a gpu-id based model is picked if available, otherwise the default model is used.
 	- mali-simple-power-model: Default model used on mali
+- protected-mode-switcher : Phandle to device implemented protected mode switching functionality.
+Refer to Documentation/devicetree/bindings/arm/smc-protected-mode-switcher.txt for one implementation.
 
 Example for a Mali-T602:
 

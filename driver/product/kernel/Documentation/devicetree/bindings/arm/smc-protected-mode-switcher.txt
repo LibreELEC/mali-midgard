@@ -25,7 +25,7 @@ Required properties :
 An example node :
 
 	gpu_switcher {
-		compatible = "smc-arm,protected-mode-switcher";
+		compatible = "arm,smc-protected-mode-switcher";
 		arm,smc,protected_enable = <0xff06>;
 		arm,smc,protected_disable = <0xff07>;
 	};
