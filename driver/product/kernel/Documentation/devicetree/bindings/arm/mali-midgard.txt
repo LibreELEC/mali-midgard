@@ -1,5 +1,5 @@
 #
-# (C) COPYRIGHT 2013-2015 ARM Limited. All rights reserved.
+# (C) COPYRIGHT 2013-2016 ARM Limited. All rights reserved.
 #
 # This program is free software and is provided to you under the terms of the
 # GNU General Public License version 2 as published by the Free Software
@@ -58,6 +58,10 @@ for details.
 	- 0  : ACE-Lite
 	- 1  : ACE
 	- 31 : No coherency
+- ipa-model : Sets the IPA model to be used for power management. GPU probe will fail if the
+	      model is not found in the registered models list. If no model is specified here,
+	      a gpu-id based model is picked if available, otherwise the default model is used.
+	- generic_ipa_model : Default model used on mali
 
 Example for a Mali-T602:
 
