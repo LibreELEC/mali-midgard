@@ -1,5 +1,5 @@
 #
-# (C) COPYRIGHT 2010-2013, 2016 ARM Limited. All rights reserved.
+# (C) COPYRIGHT 2010-2013, 2016-2017 ARM Limited. All rights reserved.
 #
 # This program is free software and is provided to you under the terms of the
 # GNU General Public License version 2 as published by the Free Software
@@ -19,6 +19,8 @@ import shutil
 import subprocess
 
 from SCons.Script import SCons
+
+import utils
 
 Import("env")
 
@@ -52,8 +54,9 @@ def kernel_module_builder(env = None, target = None, source = None):
             'built_module' in env)
 
     module_dir = str(env['M'])
-    cmd = ['make', '-j%d' % GetOption('num_jobs')] + env['make_args']
-    status = subprocess.call(cmd, cwd = module_dir, env = env['ENV'])
+    cmd = ['make', '-C', module_dir, '-j%d' % GetOption('num_jobs')] + env['make_args']
+    print utils.quote_command(cmd)
+    status = subprocess.call(cmd, env = env['ENV'])
     if status:
         return status
 
@@ -65,18 +68,22 @@ builder = env.Builder(action = action)
 env.Append(BUILDERS = {'KernelModuleBuilder': builder})
 
 def build_kernel_module(env, target, sources, M = None, make_args = [],
-                        built_module = None):
+                        make_targets = []):
     if not M:
         M = Dir('.').srcnode().abspath
-    if not built_module:
-        built_module = os.path.basename(str(target))
-    built_module = os.path.join(M, built_module)
+    built_module = os.path.join(M, os.path.basename(str(target)))
+
+    if env.GetOption('clean'):
+        cmd = ['make', '-C', M] + make_args + ['clean']
+        print "[CLEAN]", os.path.basename(built_module)
+        print utils.quote_command(cmd)
+        subprocess.call(cmd, env = env['ENV'])
 
     env_kern = env.Clone()
     kdir = env_kern['ENV']['KDIR']
     env_kern.Append(CPPPATH = [M, '#kernel/include', os.path.join(kdir, 'include')])
     mod = env_kern.KernelModuleBuilder(target, sources, M = M,
-                                       make_args = make_args,
+                                       make_args = make_args + make_targets,
                                        built_module = built_module)
 
     # Kbuild implicitly #includes kconfig.h (which includes autoconf.h) when
@@ -94,14 +101,10 @@ def build_kernel_module(env, target, sources, M = None, make_args = [],
         src = env_kern.File(src)
         (base, ext) = os.path.splitext(src.abspath)
         if ext == '.c':
-            env_kern.Clean(mod, base + '.o')
             # Scan for header dependencies explicitly.
             headers = scanner(src, env_kern, scanner.path_function(env_kern))
             env_kern.Depends(mod, headers)
             all_headers.update(headers)
-
-    env_kern.Clean(mod, os.path.join(M, 'Module.symvers'))
-    env_kern.Clean(mod, os.path.join(M, 'module.order'))
 
     return mod
 
