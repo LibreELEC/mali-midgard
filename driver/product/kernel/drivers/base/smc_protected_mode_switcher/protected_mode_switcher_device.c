@@ -135,10 +135,8 @@ static int protected_mode_probe(struct platform_device *pdev)
 static int protected_mode_remove(struct platform_device *pdev)
 {
 	struct protected_mode_device *protected_dev;
-	struct smc_protected_mode_device *sdev;
 
 	protected_dev = platform_get_drvdata(pdev);
-	sdev = protected_dev->data;
 
 	dev_info(&pdev->dev, "Protected mode switcher %s removed\n",
 			pdev->name);

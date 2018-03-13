@@ -31,7 +31,7 @@ Optional:
 - clock-names : Shall be "clk_mali".
 - mali-supply : Phandle to regulator for the Mali device. Refer to
 Documentation/devicetree/bindings/regulator/regulator.txt for details.
-- operating-points : Refer to Documentation/devicetree/bindings/power/opp.txt
+- operating-points-v2 : Refer to Documentation/devicetree/bindings/power/opp.txt
 for details.
 - jm_config : For T860/T880. Sets job manager configuration. An array containing:
 	- 1 to override the TIMESTAMP value, 0 otherwise.
@@ -65,7 +65,7 @@ for details.
 - protected-mode-switcher : Phandle to device implemented protected mode switching functionality.
 Refer to Documentation/devicetree/bindings/arm/smc-protected-mode-switcher.txt for one implementation.
 
-Example for a Mali-T602:
+Example for a Mali GPU:
 
 gpu@0xfc010000 {
 	compatible = "arm,malit602", "arm,malit60x", "arm,malit6xx", "arm,mali-midgard";
@@ -76,21 +76,49 @@ gpu@0xfc010000 {
 	clocks = <&pclk_mali>;
 	clock-names = "clk_mali";
 	mali-supply = <&vdd_mali>;
-	operating-points = <
-		/* KHz   uV */
-		533000 1250000,
-		450000 1150000,
-		400000 1125000,
-		350000 1075000,
-		266000 1025000,
-		160000  925000,
-		100000  912500,
-	>;
-	power_model {
+	operating-points-v2 = <&gpu_opp_table>;
+	power_model@0 {
 		compatible = "arm,mali-simple-power-model";
 		static-coefficient = <2427750>;
 		dynamic-coefficient = <4687>;
 		ts = <20000 2000 (-20) 2>;
 		thermal-zone = "gpu";
+	};
+	power_model@1 {
+		compatible = "arm,mali-g71-power-model";
+		scale = <15000>;
+	};
+};
+
+gpu_opp_table: opp_table0 {
+	compatible = "operating-points-v2";
+
+	opp@533000000 {
+		opp-hz = /bits/ 64 <533000000>;
+		opp-microvolt = <1250000>;
+	};
+	opp@450000000 {
+		opp-hz = /bits/ 64 <450000000>;
+		opp-microvolt = <1150000>;
+	};
+	opp@400000000 {
+		opp-hz = /bits/ 64 <400000000>;
+		opp-microvolt = <1125000>;
+	};
+	opp@350000000 {
+		opp-hz = /bits/ 64 <350000000>;
+		opp-microvolt = <1075000>;
+	};
+	opp@266000000 {
+		opp-hz = /bits/ 64 <266000000>;
+		opp-microvolt = <1025000>;
+	};
+	opp@160000000 {
+		opp-hz = /bits/ 64 <160000000>;
+		opp-microvolt = <925000>;
+	};
+	opp@100000000 {
+		opp-hz = /bits/ 64 <100000000>;
+		opp-microvolt = <912500>;
 	};
 };
