@@ -382,7 +382,22 @@ static int do_dma_buf_te_ioctl_alloc(struct dma_buf_te_ioctl_alloc __user *buf, 
 	}
 
 	/* alloc ready, let's export it */
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 17, 0))
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 1, 0))
+	{
+		struct dma_buf_export_info export_info = {
+			.exp_name = "dma_buf_te",
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 2, 0))
+			.owner = THIS_MODULE,
+#endif
+			.ops = &dma_buf_te_ops,
+			.size = alloc->nr_pages << PAGE_SHIFT,
+			.flags = O_CLOEXEC | O_RDWR,
+			.priv = alloc,
+		};
+
+		dma_buf = dma_buf_export(&export_info);
+	}
+#elif (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 17, 0))
 	dma_buf = dma_buf_export(alloc, &dma_buf_te_ops,
 			alloc->nr_pages << PAGE_SHIFT, O_CLOEXEC|O_RDWR, NULL);
 #else
