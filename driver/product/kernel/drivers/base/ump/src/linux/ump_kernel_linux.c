@@ -114,8 +114,6 @@ static int __init umpp_linux_initialize_module(void)
 {
 	ump_result err;
 
-	DBG_MSG(2, "Inserting UMP device driver. Compiled: %s, time: %s\n", __DATE__, __TIME__);
-
 	err = umpp_core_constructor();
 	if (UMP_OK != err)
 	{
@@ -441,7 +439,7 @@ static int do_ump_dd_msync_now(umpp_session * session, ump_k_msync * params)
 		if (it->id == params->secure_id)
 		{
 			/* found, do the cache op */
-#ifdef CONFIG_64BIT
+#ifdef CONFIG_COMPAT
 			if (is_compat_task())
 			{
 				umpp_dd_cpu_msync_now(it->mem, params->cache_operation, compat_ptr(params->mapped_ptr.compat_value), params->size);
@@ -452,7 +450,7 @@ static int do_ump_dd_msync_now(umpp_session * session, ump_k_msync * params)
 #endif
 				umpp_dd_cpu_msync_now(it->mem, params->cache_operation, params->mapped_ptr.value, params->size);
 				result = 0;
-#ifdef CONFIG_64BIT
+#ifdef CONFIG_COMPAT
 			}
 #endif
 			break;
@@ -535,7 +533,7 @@ void ump_import_module_unregister(enum ump_external_memory_type type)
 	mutex_unlock(&import_list_lock);
 }
 
-static struct ump_import_handler * import_handler_get(int type_id)
+static struct ump_import_handler * import_handler_get(unsigned int type_id)
 {
 	enum ump_external_memory_type type;
 	struct ump_import_handler * handler;

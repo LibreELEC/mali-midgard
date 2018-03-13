@@ -42,6 +42,7 @@ ccflags-y += -I$(UMP_PATH) -I$(UMP_DEVICEDRV_PATH) $(UNIT_TEST_DEFINES)
 # Tell the Linux build system from which .o file to create the kernel module
 obj-$(CONFIG_UMP) += ump.o
 ifeq ($(CONFIG_ION),y)
+ccflags-y += -I$(srctree)/drivers/staging/android/ion -I$(srctree)/include/linux
 obj-$(CONFIG_UMP) += imports/ion/ump_kernel_import_ion.o
 endif
 

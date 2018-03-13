@@ -1,15 +1,20 @@
 diff --git a/drivers/base/Kconfig b/drivers/base/Kconfig
-index 3d987a2..8c4ee99 100644
+index 9aa618a..30e07ea 100644
 --- a/drivers/base/Kconfig
 +++ b/drivers/base/Kconfig
-@@ -185,6 +185,7 @@ config DMA_SHARED_BUFFER
- 	bool
- 	default n
- 	select ANON_INODES
+@@ -192,4 +192,12 @@ config DMA_SHARED_BUFFER
+ 	  APIs extension; the file's descriptor can then be passed on to other
+ 	  driver.
+ 
++config DMA_SHARED_BUFFER_USES_KDS
++	bool "Synchronize access to dma_buf with KDS"
++	default n
 +	select KDS
- 	depends on EXPERIMENTAL
- 	help
- 	  This option enables the framework for buffer-sharing between
++	depends on DMA_SHARED_BUFFER
++	help
++	  This option adds a KDS resource within every dma_buf allocation.
++
+ endmenu
 diff --git a/drivers/base/dma-buf.c b/drivers/base/dma-buf.c
 index 20258e1..e4083fd 100644
 --- a/drivers/base/dma-buf.c

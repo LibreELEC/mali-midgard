@@ -355,8 +355,7 @@ void pl111_crtc_helper_disable(struct drm_crtc *crtc)
 	DRM_DEBUG_KMS("DRM %s on crtc=%p\n", __func__, crtc);
 
 	/* don't disable crtc until no flips in flight as irq will be disabled */
-	ret = wait_event_interruptible(priv.wait_for_flips,
-			atomic_read(&priv.nr_flips_in_flight) == 0);
+	ret = wait_event_killable(priv.wait_for_flips, atomic_read(&priv.nr_flips_in_flight) == 0);
 	if(ret) {
 		pr_err("pl111_crtc_helper_disable failed\n");
 		return;
