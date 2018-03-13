@@ -13,21 +13,7 @@
 #
 
 
-
-import os
 Import('env')
 
-src = [Glob('#kernel/drivers/base/dma_buf_test_exporter/*.c'), Glob('#kernel/include/linux/*.h'), Glob('#kernel/drivers/base/dma_buf_test_exporter/K*')]
-
-env.Append( CPPPATH = '#kernel/include' )
-
-if env.GetOption('clean') :
-	env.Execute(Action("make clean", '[CLEAN] dma-buf-test-exporter'))
-	cmd = env.Command('$STATIC_LIB_PATH/dma-buf-test-exporter.ko', src, [])
-	env.KernelObjTarget('dma-buf-test-exporter', cmd)
-else:
-	makeAction=Action("cd ${SOURCE.dir} && make && ( ( [ -f dma-buf-test-exporter.ko ] && cp dma-buf-test-exporter.ko $STATIC_LIB_PATH/ ) || touch $STATIC_LIB_PATH/dma-buf-test-exporter.ko)", '$MAKECOMSTR')
-	cmd = env.Command('$STATIC_LIB_PATH/dma-buf-test-exporter.ko', src, [makeAction])
-	env.KernelObjTarget('dma-buf-test-exporter', cmd)
-
-	
+mod = env.BuildKernelModule('$STATIC_LIB_PATH/dma-buf-test-exporter.ko', Glob('*.c'))
+env.KernelObjTarget('dma-buf-test-exporter', mod)
