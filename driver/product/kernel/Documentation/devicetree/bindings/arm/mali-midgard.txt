@@ -74,6 +74,9 @@ for details.
 		- scale: the dynamic power calculated by the power model is
 		  scaled by a factor of "scale"/1000. This value should be
 		  chosen to match a particular implementation.
+		- min_sample_cycles: Fall back to the simple power model if the
+		  number of GPU cycles for a given counter dump is less than
+		  'min_sample_cycles'. The default value of this should suffice.
 	* Note: when IPA is used, two separate power models (simple and counter-based)
 	  are used at different points so care should be taken to configure
 	  both power models in the device tree (specifically dynamic-coefficient,

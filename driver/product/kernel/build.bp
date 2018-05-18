@@ -3,7 +3,7 @@
  * ----------------------------------------------------------------------------
  * This confidential and proprietary software may be used only as authorized
  * by a licensing agreement from ARM Limited.
- *      (C) COPYRIGHT 2016-2017 ARM Limited, ALL RIGHTS RESERVED
+ *      (C) COPYRIGHT 2016-2018 ARM Limited, ALL RIGHTS RESERVED
  * The entire notice above must be reproduced on all authorized copies and
  * copies may only be made to the extent permitted by a licensing agreement
  * from ARM Limited.
@@ -29,9 +29,6 @@ bob_defaults {
     include_dirs: [
         "kernel/include",
     ],
-    ump: {
-        kbuild_options: ["CONFIG_UMP=m"],
-    },
     build_kernel_modules: {
         enabled: true,
     },
@@ -43,14 +40,10 @@ bob_alias {
     srcs: [
         "dma-buf-test-exporter",
         "mali_kbase",
-        "ump",
     ],
 }
 
 subdirs = [
     "drivers/base/dma_buf_test_exporter",
-    "drivers/base/ump/src",
     "drivers/gpu/arm/midgard",
 ]
-
-optional_subdirs=["drivers/base/kds/src"]
