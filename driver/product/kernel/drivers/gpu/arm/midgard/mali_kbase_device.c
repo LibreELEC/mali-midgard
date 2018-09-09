@@ -155,7 +155,7 @@ int kbase_device_init(struct kbase_device * const kbdev)
 
 	spin_lock_init(&kbdev->mmu_mask_change);
 	mutex_init(&kbdev->mmu_hw_mutex);
-#ifdef CONFIG_ARM64
+#if 0 //def CONFIG_ARM64
 	kbdev->cci_snoop_enabled = false;
 	np = kbdev->dev->of_node;
 	if (np != NULL) {

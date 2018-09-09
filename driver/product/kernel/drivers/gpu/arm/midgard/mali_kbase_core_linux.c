@@ -203,7 +203,7 @@ static int assign_irqs(struct platform_device *pdev)
 			return -ENOENT;
 		}
 
-#ifdef CONFIG_OF
+#if 0 //def CONFIG_OF
 		if (!strncmp(irq_res->name, "JOB", 4)) {
 			irqtag = JOB_IRQ_TAG;
 		} else if (!strncmp(irq_res->name, "MMU", 4)) {
@@ -2983,7 +2983,7 @@ static const struct file_operations kbasep_serialize_jobs_debugfs_fops = {
 
 static int kbasep_protected_mode_init(struct kbase_device *kbdev)
 {
-#ifdef CONFIG_OF
+#if 0 //def CONFIG_OF
 	struct device_node *protected_node;
 	struct platform_device *pdev;
 	struct protected_mode_device *protected_dev;
@@ -3003,7 +3003,7 @@ static int kbasep_protected_mode_init(struct kbase_device *kbdev)
 
 	kbdev->protected_mode_support = false;
 
-#ifdef CONFIG_OF
+#if 0 //def CONFIG_OF
 	protected_node = of_parse_phandle(kbdev->dev->of_node,
 			"protected-mode-switcher", 0);
 
@@ -3154,7 +3154,7 @@ static int power_control_init(struct platform_device *pdev)
 	}
 #endif /* LINUX_VERSION_CODE >= 3, 12, 0 */
 
-	kbdev->clock = of_clk_get(kbdev->dev->of_node, 0);
+	kbdev->clock = NULL; //of_clk_get(kbdev->dev->of_node, 0);
 	if (IS_ERR_OR_NULL(kbdev->clock)) {
 		err = PTR_ERR(kbdev->clock);
 		kbdev->clock = NULL;
@@ -3424,7 +3424,7 @@ static inline void kbase_device_debugfs_term(struct kbase_device *kbdev) { }
 static void kbase_device_coherency_init(struct kbase_device *kbdev,
 		unsigned prod_id)
 {
-#ifdef CONFIG_OF
+#if 0 //def CONFIG_OF
 	u32 supported_coherency_bitmap =
 		kbdev->gpu_props.props.raw_props.coherency_mode;
 	const void *coherency_override_dts;
@@ -3447,7 +3447,7 @@ static void kbase_device_coherency_init(struct kbase_device *kbdev,
 	kbdev->system_coherency = COHERENCY_NONE;
 
 	/* device tree may override the coherency */
-#ifdef CONFIG_OF
+#if 0 //def CONFIG_OF
 	coherency_override_dts = of_get_property(kbdev->dev->of_node,
 						"system-coherency",
 						NULL);
@@ -4088,7 +4088,7 @@ static const struct dev_pm_ops kbase_pm_ops = {
 #endif /* KBASE_PM_RUNTIME */
 };
 
-#ifdef CONFIG_OF
+#if 0 //def CONFIG_OF
 static const struct of_device_id kbase_dt_ids[] = {
 	{ .compatible = "arm,malit6xx" },
 	{ .compatible = "arm,mali-midgard" },
@@ -4104,7 +4104,9 @@ static struct platform_driver kbase_platform_driver = {
 		   .name = kbase_drv_name,
 		   .owner = THIS_MODULE,
 		   .pm = &kbase_pm_ops,
+#if 0 //def CONFIG_OF
 		   .of_match_table = of_match_ptr(kbase_dt_ids),
+#endif
 	},
 };
 
@@ -4112,7 +4114,7 @@ static struct platform_driver kbase_platform_driver = {
  * The driver will not provide a shortcut to create the Mali platform device
  * anymore when using Device Tree.
  */
-#ifdef CONFIG_OF
+#if 0 //def CONFIG_OF
 module_platform_driver(kbase_platform_driver);
 #else
 
