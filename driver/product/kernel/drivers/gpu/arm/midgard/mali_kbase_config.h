@@ -32,6 +32,7 @@
 
 #include <linux/mm.h>
 #include <mali_malisw.h>
+#include <linux/platform_device.h>
 #include <mali_kbase_backend_config.h>
 #include <linux/rbtree.h>
 
@@ -211,7 +212,7 @@ struct kbase_pm_callback_conf {
 	int (*power_runtime_idle_callback)(struct kbase_device *kbdev);
 };
 
-#ifdef CONFIG_OF
+#if 0 //def CONFIG_OF
 struct kbase_platform_config {
 };
 #else
@@ -237,6 +238,11 @@ struct kbase_io_resources {
 struct kbase_platform_config {
 	const struct kbase_io_resources *io_resources;
 };
+
+/**
+ * @brief Prepares the platform_device structure before adding to the system
+ */
+void kbase_platform_prepare_device(struct platform_device *mali_device);
 
 #endif /* CONFIG_OF */
 
@@ -272,7 +278,7 @@ int kbasep_platform_device_init(struct kbase_device *kbdev);
  */
 void kbasep_platform_device_term(struct kbase_device *kbdev);
 
-#ifndef CONFIG_OF
+#if 1 //ndef CONFIG_OF
 /**
  * kbase_platform_register - Register a platform device for the GPU
  *

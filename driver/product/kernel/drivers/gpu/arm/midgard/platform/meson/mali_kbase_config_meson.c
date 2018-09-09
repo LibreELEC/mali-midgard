@@ -59,6 +59,7 @@
 #include <linux/err.h>
 #include <linux/io.h>
 #include <linux/kernel.h>
+#include <linux/version.h>
 #include <linux/module.h>
 #include <linux/of.h>
 #include <linux/of_device.h>
@@ -89,18 +90,6 @@ static struct kbase_platform_config meson_platform_config = {
 
 struct kbase_platform_config *kbase_get_platform_config(void)
 {
-	return &meson_platform_config;
-}
-
-void kbase_platform_prepare_device(struct platform_device *mali_device)
-{
-	of_dma_configure(&mali_device->dev, np);
-
-	pm_runtime_enable(&mali_device->dev);
-}
-
-int kbase_platform_early_init(void)
-{
 	struct resource res;
 	struct clk *core;
 	int irq_job, irq_mmu, irq_gpu;
@@ -109,7 +98,7 @@ int kbase_platform_early_init(void)
 	np = of_find_matching_node(NULL, meson_mali_matches);
 	if (!np) {
 		pr_err("Couldn't find the mali node\n");
-		return -ENODEV;
+		return NULL;
 	}
 
 	core = of_clk_get_by_name(np, "core");
@@ -158,10 +147,23 @@ int kbase_platform_early_init(void)
 
 	of_node_put(np);
 
+	return &meson_platform_config;
+
 err_put_clk:
 	clk_put(core);
 err_put_node:
 	of_node_put(np);
 
-	return 0;
+	return NULL;
+}
+
+void kbase_platform_prepare_device(struct platform_device *mali_device)
+{
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 18, 0)
+	of_dma_configure(&mali_device->dev, np, true);
+#else
+	of_dma_configure(&mali_device->dev, np);
+#endif
+
+	pm_runtime_enable(&mali_device->dev);
 }
