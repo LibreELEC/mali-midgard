@@ -3948,7 +3948,40 @@ static int power_control_init(struct platform_device *pdev)
 			"Continuing without Mali regulator control\n");
 		/* Allow probe to continue without regulator */
 	}
+	else {
+		err = regulator_enable(kbdev->regulator);
+		if (err) {
+			dev_err(kbdev->dev, "Failed to enable regulator\n");
+			return err;
+		}
+	}
 #endif /* LINUX_VERSION_CODE >= 3, 12, 0 */
+
+#ifdef CONFIG_MALI_PLATFORM_DEVICETREE
+	kbdev->mali_rst = of_reset_control_get_by_index(kbdev->dev->of_node, 0);
+	if (IS_ERR(kbdev->mali_rst)) {
+		err = PTR_ERR(kbdev->mali_rst);
+		kbdev->mali_rst = NULL;
+		if (err == -EPROBE_DEFER) {
+			dev_err(kbdev->dev, "Couldn't get mali reset line\n");
+			goto fail;
+		}
+		dev_info(kbdev->dev,
+			"Continuing without Mali reset line control\n");
+	}
+#endif
+
+	kbdev->bus_clk = of_clk_get(kbdev->dev->of_node, 1);
+	if (IS_ERR(kbdev->bus_clk)) {
+		err = PTR_ERR(kbdev->bus_clk);
+		kbdev->bus_clk = NULL;
+		if (err == -EPROBE_DEFER) {
+			dev_err(kbdev->dev, "Couldn't get the mali bus clock\n");
+			goto fail;
+		}
+		dev_info(kbdev->dev,
+			"Continuing without Mali bus clock\n");
+	}
 
 	kbdev->clock = of_clk_get(kbdev->dev->of_node, 0);
 	if (IS_ERR_OR_NULL(kbdev->clock)) {
@@ -3961,6 +3994,8 @@ static int power_control_init(struct platform_device *pdev)
 		dev_info(kbdev->dev, "Continuing without Mali clock control\n");
 		/* Allow probe to continue without clock. */
 	} else {
+		reset_control_deassert(kbdev->mali_rst);
+		clk_prepare_enable(kbdev->bus_clk);
 		err = clk_prepare_enable(kbdev->clock);
 		if (err) {
 			dev_err(kbdev->dev,
@@ -3993,6 +4028,16 @@ if (kbdev->clock != NULL) {
 	kbdev->clock = NULL;
 }
 
+if (kbdev->bus_clk) {
+	clk_put(kbdev->bus_clk);
+	kbdev->bus_clk = NULL;
+}
+
+if (kbdev->mali_rst) {
+	reset_control_put(kbdev->mali_rst);
+	kbdev->mali_rst = NULL;
+}
+
 #ifdef CONFIG_REGULATOR
 	if (NULL != kbdev->regulator) {
 		regulator_put(kbdev->regulator);
@@ -4016,6 +4061,18 @@ static void power_control_term(struct kbase_device *kbdev)
 		clk_disable_unprepare(kbdev->clock);
 		clk_put(kbdev->clock);
 		kbdev->clock = NULL;
+	}
+
+	if (kbdev->bus_clk) {
+		clk_disable_unprepare(kbdev->bus_clk);
+		clk_put(kbdev->bus_clk);
+		kbdev->bus_clk = NULL;
+	}
+
+	if (kbdev->mali_rst) {
+		reset_control_assert(kbdev->mali_rst);
+		reset_control_put(kbdev->mali_rst);
+		kbdev->mali_rst = NULL;
 	}
 
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 12, 0)) && defined(CONFIG_OF) \

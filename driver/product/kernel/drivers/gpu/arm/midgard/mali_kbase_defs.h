@@ -69,6 +69,7 @@
 #endif /* CONFIG_MALI_DEVFREQ */
 
 #include <linux/clk.h>
+#include <linux/reset.h>
 #include <linux/regulator/consumer.h>
 
 #if defined(CONFIG_PM_RUNTIME) || \
@@ -1423,6 +1424,8 @@ struct kbase_device {
 	} irqs[3];
 
 	struct clk *clock;
+	struct clk *bus_clk;
+	struct reset_control *mali_rst;
 #ifdef CONFIG_REGULATOR
 	struct regulator *regulator;
 #endif
