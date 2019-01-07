@@ -9,3 +9,8 @@
 # ----------------------------------------------------------------------------
 
 source "kernel/drivers/gpu/arm/midgard/Mconfig"
+
+config SMC_PROTECTED_MODE_SWITCHER
+    bool
+    default y if PLATFORM_JUNO && GPU_T62X && BUILD_KERNEL_MODULES
+    default n

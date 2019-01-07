@@ -10,27 +10,19 @@
  * ----------------------------------------------------------------------------
  */
 
-bob_defaults {
-    name: "kernel_test_module_defaults",
-    defaults: ["mali_kbase_shared_config_defaults"],
-    include_dirs: [
-        "kernel/drivers/gpu/arm",
-        "kernel/drivers/gpu/arm/midgard",
-        "kernel/drivers/gpu/arm/midgard/backend/gpu",
-        "kernel/drivers/gpu/arm/midgard/tests/include",
+bob_kernel_module {
+    name: "smc_protected_mode_switcher",
+    enabled: false,
+    smc_protected_mode_switcher: {
+        enabled: true,
+    },
+    srcs: [
+        "Kbuild",
+        "protected_mode_switcher_device.c",
+        "protected_mode_switcher_smc.S",
     ],
+    kbuild_options: [
+        "CONFIG_SMC_PROTECTED_MODE_SWITCHER=m",
+    ],
+    defaults: ["kernel_defaults"],
 }
-
-subdirs = [
-    "kutf",
-    "mali_kutf_irq_test",
-]
-
-optional_subdirs = [
-    "kutf_test",
-    "kutf_test_runner",
-    "mali_kutf_ipa_test",
-    "mali_kutf_ipa_unit_test",
-    "mali_kutf_vinstr_test",
-    "mali_kutf_fw_test",
-]
