@@ -56,13 +56,3 @@ bob_alias {
         "mali_kbase",
     ],
 }
-
-subdirs = [
-    "drivers/base/dma_buf_test_exporter",
-    "drivers/base/smc_protected_mode_switcher",
-    "drivers/gpu/arm/midgard",
-]
-
-optional_subdirs = [
-    "drivers/base/mali_fpga_sysctl",
-]
