@@ -72,7 +72,7 @@ for details.
 		- compatible: Should be "arm,mali-g71-power-model" /
 		  "arm,mali-g72-power-model"
 		- scale: the dynamic power calculated by the power model is
-		  scaled by a factor of "scale"/1000. This value should be
+		  multiplied by a factor of 'scale'. This value should be
 		  chosen to match a particular implementation.
 		- min_sample_cycles: Fall back to the simple power model if the
 		  number of GPU cycles for a given counter dump is less than
