@@ -1,6 +1,6 @@
 /*
  *
- * (C) COPYRIGHT 2012-2017 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2012-2018 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -60,7 +60,11 @@ struct dma_buf_te_alloc {
 
 static struct miscdevice te_device;
 
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(4, 19, 0))
 static int dma_buf_te_attach(struct dma_buf *buf, struct device *dev, struct dma_buf_attachment *attachment)
+#else
+static int dma_buf_te_attach(struct dma_buf *buf, struct dma_buf_attachment *attachment)
+#endif
 {
 	struct dma_buf_te_alloc	*alloc;
 	alloc = buf->priv;
@@ -276,11 +280,13 @@ static int dma_buf_te_mmap(struct dma_buf *dmabuf, struct vm_area_struct *vma)
 	return 0;
 }
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 19, 0)
 static void *dma_buf_te_kmap_atomic(struct dma_buf *buf, unsigned long page_num)
 {
 	/* IGNORE */
 	return NULL;
 }
+#endif
 
 static void *dma_buf_te_kmap(struct dma_buf *buf, unsigned long page_num)
 {
@@ -323,8 +329,10 @@ static struct dma_buf_ops dma_buf_te_ops = {
 	.map = dma_buf_te_kmap,
 	.unmap = dma_buf_te_kunmap,
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 19, 0)
 	/* nop handlers for mandatory functions we ignore */
 	.map_atomic = dma_buf_te_kmap_atomic
+#endif
 #endif
 };
 

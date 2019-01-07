@@ -46,9 +46,10 @@ for details.
 	  simultaneously, 0 otherwise.
 	- Value between 0 and 63 (including). If job throttle is enabled, this is one
 	  less than the number of cores that can be started simultaneously.
-- power_model : Sets the power model parameters. Three power models are currently
-  defined which include "mali-simple-power-model", "mali-g71-power-model" and
-	  "mali-g72-power-model".
+- power_model : Sets the power model parameters. Defined power models include:
+	  "mali-simple-power-model", "mali-g51-power-model", "mali-g52-power-model",
+	  "mali-g52_r1-power-model", "mali-g71-power-model", "mali-g72-power-model",
+	  and "mali-g76-power-model".
 	- mali-simple-power-model: this model derives the GPU power usage based
 	  on the GPU voltage scaled by the system temperature. Note: it was
 	  designed for the Juno platform, and may not be suitable for others.
@@ -66,11 +67,11 @@ for details.
 		  the GPU
 		- temp-poll-interval-ms: the interval at which the system
 		  temperature is polled
-	- mali-g71-power-model / mali-g72-power-model: these models derive
+	- mali-g*-power-model(s): unless being stated otherwise, these models derive
 	  the GPU power usage based on performance counters, so they are more
 	  accurate.
-		- compatible: Should be "arm,mali-g71-power-model" /
-		  "arm,mali-g72-power-model"
+		- compatible: Should be, as examples, "arm,mali-g51-power-model" /
+		  "arm,mali-g72-power-model".
 		- scale: the dynamic power calculated by the power model is
 		  multiplied by a factor of 'scale'. This value should be
 		  chosen to match a particular implementation.
@@ -93,6 +94,9 @@ for details.
 	- mali-simple-power-model: Default model used on mali
 - protected-mode-switcher : Phandle to device implemented protected mode switching functionality.
 Refer to Documentation/devicetree/bindings/arm/smc-protected-mode-switcher.txt for one implementation.
+-  idvs-group-size : Override the IDVS group size value. Tasks are sent to
+		     cores in groups of N + 1, so i.e. 0xF means 16 tasks.
+		     Valid values are between 0 to 0x3F (including).
 
 Example for a Mali GPU:
 
@@ -117,6 +121,8 @@ gpu@0xfc010000 {
 		compatible = "arm,mali-g71-power-model";
 		scale = <5>;
 	};
+
+	idvs-group-size = <0x7>;
 };
 
 gpu_opp_table: opp_table0 {

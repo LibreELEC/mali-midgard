@@ -33,7 +33,6 @@ bob_defaults {
         enabled: true,
         kernel_dir : "{{.kernel_dir}}",
         kernel_compiler : "{{.kernel_compiler}}",
-        kernel_arch: "{{.kernel_arch}}",
     },
     install_group: "IG_kernel_modules",
     cflags: [
