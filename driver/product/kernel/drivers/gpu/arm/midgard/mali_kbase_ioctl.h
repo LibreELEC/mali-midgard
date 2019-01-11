@@ -33,6 +33,28 @@ extern "C" {
 #define KBASE_IOCTL_TYPE 0x80
 
 /*
+ * 10.1:
+ * - Do mmap in kernel for SAME_VA memory allocations rather then
+ *   calling back into the kernel as a 2nd stage of the allocation request.
+ *
+ * 10.2:
+ * - Add KBASE_FUNC_MEM_JIT_INIT which allows clients to request a custom VA
+ *   region for use with JIT (ignored on 32-bit platforms)
+ *
+ * 10.3:
+ * - base_jd_core_req typedef-ed to u32 (instead of to u16)
+ * - two flags added: BASE_JD_REQ_SKIP_CACHE_STAT / _END
+ *
+ * 10.4:
+ * - Removed KBASE_FUNC_EXT_BUFFER_LOCK used only in internal tests
+ *
+ * 10.5:
+ * - Reverted to performing mmap in user space so that tools like valgrind work.
+ *
+ * 10.6:
+ * - Add flags input variable to KBASE_FUNC_TLSTREAM_ACQUIRE
+ */
+/*
  * 11.1:
  * - Add BASE_MEM_TILER_ALIGN_TOP under base_mem_alloc_flags
  * 11.2:
@@ -789,9 +811,9 @@ union kbase_ioctl_cs_event_memory_read {
 #define KBASE_GPUPROP_VERSION_STATUS			2
 #define KBASE_GPUPROP_MINOR_REVISION			3
 #define KBASE_GPUPROP_MAJOR_REVISION			4
-/* 5 previously used for GPU speed */
+#define KBASE_GPUPROP_GPU_SPEED_MHZ			5
 #define KBASE_GPUPROP_GPU_FREQ_KHZ_MAX			6
-/* 7 previously used for minimum GPU speed */
+#define KBASE_GPUPROP_GPU_FREQ_KHZ_MIN			7
 #define KBASE_GPUPROP_LOG2_PROGRAM_COUNTER_SIZE		8
 #define KBASE_GPUPROP_TEXTURE_FEATURES_0		9
 #define KBASE_GPUPROP_TEXTURE_FEATURES_1		10
@@ -818,7 +840,7 @@ union kbase_ioctl_cs_event_memory_read {
 #define KBASE_GPUPROP_RAW_L2_PRESENT			27
 #define KBASE_GPUPROP_RAW_STACK_PRESENT			28
 #define KBASE_GPUPROP_RAW_L2_FEATURES			29
-#define KBASE_GPUPROP_RAW_CORE_FEATURES			30
+#define KBASE_GPUPROP_RAW_SUSPEND_SIZE			30
 #define KBASE_GPUPROP_RAW_MEM_FEATURES			31
 #define KBASE_GPUPROP_RAW_MMU_FEATURES			32
 #define KBASE_GPUPROP_RAW_AS_PRESENT			33
@@ -869,14 +891,6 @@ union kbase_ioctl_cs_event_memory_read {
 #define KBASE_GPUPROP_COHERENCY_GROUP_13		77
 #define KBASE_GPUPROP_COHERENCY_GROUP_14		78
 #define KBASE_GPUPROP_COHERENCY_GROUP_15		79
-
-#define KBASE_GPUPROP_TEXTURE_FEATURES_3		80
-#define KBASE_GPUPROP_RAW_TEXTURE_FEATURES_3		81
-
-#define KBASE_GPUPROP_NUM_EXEC_ENGINES                  82
-
-#define KBASE_GPUPROP_RAW_THREAD_TLS_ALLOC		83
-#define KBASE_GPUPROP_TLS_ALLOC				84
 
 #ifdef __cpluscplus
 }

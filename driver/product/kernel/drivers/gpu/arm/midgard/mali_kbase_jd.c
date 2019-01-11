@@ -29,6 +29,7 @@
 #include <linux/compat.h>
 #endif
 #include <mali_kbase.h>
+#include <mali_kbase_uku.h>
 #include <linux/random.h>
 #include <linux/version.h>
 #include <linux/ratelimit.h>
@@ -1137,6 +1138,12 @@ int kbase_jd_submit(struct kbase_context *kctx,
 			err = -EINVAL;
 			break;
 		}
+
+#ifdef BASE_LEGACY_UK10_2_SUPPORT
+		if (KBASE_API_VERSION(10, 3) > kctx->api_version)
+			user_atom.core_req = (u32)(user_atom.compat_core_req
+					      & 0x7fff);
+#endif /* BASE_LEGACY_UK10_2_SUPPORT */
 
 		user_addr = (void __user *)((uintptr_t) user_addr + stride);
 

@@ -41,8 +41,8 @@ void kbase_backend_gpuprops_get(struct kbase_device *kbdev,
 
 	regdump->l2_features = kbase_reg_read(kbdev,
 				GPU_CONTROL_REG(L2_FEATURES));
-	regdump->core_features = kbase_reg_read(kbdev,
-				GPU_CONTROL_REG(CORE_FEATURES));
+	regdump->suspend_size = kbase_reg_read(kbdev,
+				GPU_CONTROL_REG(SUSPEND_SIZE));
 	regdump->tiler_features = kbase_reg_read(kbdev,
 				GPU_CONTROL_REG(TILER_FEATURES));
 	regdump->mem_features = kbase_reg_read(kbdev,
@@ -70,8 +70,6 @@ void kbase_backend_gpuprops_get(struct kbase_device *kbdev,
 				GPU_CONTROL_REG(THREAD_MAX_BARRIER_SIZE));
 	regdump->thread_features = kbase_reg_read(kbdev,
 				GPU_CONTROL_REG(THREAD_FEATURES));
-	regdump->thread_tls_alloc = kbase_reg_read(kbdev,
-				GPU_CONTROL_REG(THREAD_TLS_ALLOC));
 
 	regdump->shader_present_lo = kbase_reg_read(kbdev,
 				GPU_CONTROL_REG(SHADER_PRESENT_LO));

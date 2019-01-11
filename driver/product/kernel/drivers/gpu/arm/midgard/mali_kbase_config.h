@@ -211,6 +211,20 @@ struct kbase_pm_callback_conf {
 	int (*power_runtime_idle_callback)(struct kbase_device *kbdev);
 };
 
+/**
+ * kbase_gpu_clk_speed_func - Type of the function pointer for GPU_SPEED_FUNC
+ * @param clock_speed - pointer to store the current GPU clock speed in MHz
+ *
+ * Returns 0 on success, otherwise negative error code.
+ * When an error is returned the caller assumes maximum GPU speed stored in
+ * gpu_freq_khz_max.
+ *
+ * If the system timer is not available then this function is required
+ * for the OpenCL queue profiling to return correct timing information.
+ *
+ */
+typedef int (*kbase_gpu_clk_speed_func) (u32 *clock_speed);
+
 #ifdef CONFIG_OF
 struct kbase_platform_config {
 };

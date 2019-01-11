@@ -21,6 +21,34 @@
  */
 
 /**
+ * Maximum frequency GPU will be clocked at. Given in kHz.
+ * This must be specified as there is no default value.
+ *
+ * Attached value: number in kHz
+ * Default value: NA
+ */
+#define GPU_FREQ_KHZ_MAX (5000)
+/**
+ * Minimum frequency GPU will be clocked at. Given in kHz.
+ * This must be specified as there is no default value.
+ *
+ * Attached value: number in kHz
+ * Default value: NA
+ */
+#define GPU_FREQ_KHZ_MIN (5000)
+
+/**
+ * GPU_SPEED_FUNC - A pointer to a function that calculates the GPU clock
+ *
+ * GPU clock speed of the platform in MHz - see kbase_gpu_clk_speed_func
+ * for the function prototype.
+ *
+ * Attached value: A kbase_gpu_clk_speed_func.
+ * Default Value:  NA
+ */
+#define GPU_SPEED_FUNC (NULL)
+
+/**
  * Power management configuration
  *
  * Attached value: pointer to @ref kbase_pm_callback_conf
