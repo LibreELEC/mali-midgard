@@ -27,14 +27,14 @@
 
 static int kbase_platform_init(struct kbase_device *kbdev)
 {
-	dev_info(kbdev->dev, "kbase_platform_init\n");
+	dev_dbg(kbdev->dev, "kbase_platform_init\n");
 
 	return 0;
 }
 
 static void kbase_platform_term(struct kbase_device *kbdev)
 {
-	dev_info(kbdev->dev, "kbase_platform_term\n");
+	dev_dbg(kbdev->dev, "kbase_platform_term\n");
 }
 
 struct kbase_platform_funcs_conf platform_funcs = {
@@ -77,7 +77,7 @@ static int kbase_device_runtime_init(struct kbase_device *kbdev)
 {
 	int ret = 0;
 
-	dev_info(kbdev->dev, "kbase_device_runtime_init\n");
+	dev_dbg(kbdev->dev, "kbase_device_runtime_init\n");
 
 	pm_runtime_set_autosuspend_delay(kbdev->dev, AUTO_SUSPEND_DELAY);
 	pm_runtime_use_autosuspend(kbdev->dev);
@@ -94,7 +94,7 @@ static int kbase_device_runtime_init(struct kbase_device *kbdev)
 
 static void kbase_device_runtime_disable(struct kbase_device *kbdev)
 {
-	dev_info(kbdev->dev, "kbase_device_runtime_disable\n");
+	dev_dbg(kbdev->dev, "kbase_device_runtime_disable\n");
 
 	pm_runtime_dont_use_autosuspend(kbdev->dev);
 	pm_runtime_disable(kbdev->dev);
@@ -103,7 +103,7 @@ static void kbase_device_runtime_disable(struct kbase_device *kbdev)
 
 static int pm_regulator_enable(struct kbase_device *kbdev)
 {
-	dev_info(kbdev->dev, "pm_regulator_enable\n");
+	dev_dbg(kbdev->dev, "pm_regulator_enable\n");
 
 	if (!kbdev->regulator)
 		return 0;
@@ -113,7 +113,7 @@ static int pm_regulator_enable(struct kbase_device *kbdev)
 
 static int pm_regulator_disable(struct kbase_device *kbdev)
 {
-	dev_info(kbdev->dev, "pm_regulator_disable\n");
+	dev_dbg(kbdev->dev, "pm_regulator_disable\n");
 
 	if (!kbdev->regulator)
 		return 0;
@@ -123,7 +123,7 @@ static int pm_regulator_disable(struct kbase_device *kbdev)
 
 static int pm_clk_enable(struct kbase_device *kbdev)
 {
-	dev_info(kbdev->dev, "pm_clk_enable\n");
+	dev_dbg(kbdev->dev, "pm_clk_enable\n");
 
 	if (!kbdev->clock)
 		return 0;
@@ -133,7 +133,7 @@ static int pm_clk_enable(struct kbase_device *kbdev)
 
 static void pm_clk_disable(struct kbase_device *kbdev)
 {
-	dev_info(kbdev->dev, "pm_clk_disable\n");
+	dev_dbg(kbdev->dev, "pm_clk_disable\n");
 
 	if (!kbdev->clock)
 		return;
@@ -145,7 +145,7 @@ static int pm_callback_runtime_on(struct kbase_device *kbdev)
 {
 	int ret;
 
-	dev_info(kbdev->dev, "pm_callback_runtime_on\n");
+	dev_dbg(kbdev->dev, "pm_callback_runtime_on\n");
 
 	ret = pm_regulator_enable(kbdev);
 	if (ret) {
@@ -165,7 +165,7 @@ static int pm_callback_runtime_on(struct kbase_device *kbdev)
 
 static void pm_callback_runtime_off(struct kbase_device *kbdev)
 {
-	dev_info(kbdev->dev, "pm_callback_runtime_off\n");
+	dev_dbg(kbdev->dev, "pm_callback_runtime_off\n");
 
 	pm_clk_disable(kbdev);
 	pm_regulator_disable(kbdev);
