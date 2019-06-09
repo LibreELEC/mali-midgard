@@ -3959,7 +3959,7 @@ static int power_control_init(struct platform_device *pdev)
 
 #ifdef CONFIG_MALI_PLATFORM_DEVICETREE
 	kbdev->mali_rst = of_reset_control_get_by_index(kbdev->dev->of_node, 0);
-	if (IS_ERR(kbdev->mali_rst)) {
+	if (IS_ERR_OR_NULL(kbdev->mali_rst)) {
 		err = PTR_ERR(kbdev->mali_rst);
 		kbdev->mali_rst = NULL;
 		if (err == -EPROBE_DEFER) {
@@ -3968,11 +3968,13 @@ static int power_control_init(struct platform_device *pdev)
 		}
 		dev_info(kbdev->dev,
 			"Continuing without Mali reset line control\n");
+	} else {
+		reset_control_deassert(kbdev->mali_rst);
 	}
 #endif
 
 	kbdev->bus_clk = of_clk_get(kbdev->dev->of_node, 1);
-	if (IS_ERR(kbdev->bus_clk)) {
+	if (IS_ERR_OR_NULL(kbdev->bus_clk)) {
 		err = PTR_ERR(kbdev->bus_clk);
 		kbdev->bus_clk = NULL;
 		if (err == -EPROBE_DEFER) {
@@ -3981,6 +3983,14 @@ static int power_control_init(struct platform_device *pdev)
 		}
 		dev_info(kbdev->dev,
 			"Continuing without Mali bus clock\n");
+	} else {
+		err = clk_prepare_enable(kbdev->bus_clk);
+		if (err) {
+			dev_err(kbdev->dev,
+				"Failed to prepare and enable bus clock (%d)\n",
+				err);
+			goto fail;
+		}
 	}
 
 	kbdev->clock = of_clk_get(kbdev->dev->of_node, 0);
@@ -3994,8 +4004,6 @@ static int power_control_init(struct platform_device *pdev)
 		dev_info(kbdev->dev, "Continuing without Mali clock control\n");
 		/* Allow probe to continue without clock. */
 	} else {
-		reset_control_deassert(kbdev->mali_rst);
-		clk_prepare_enable(kbdev->bus_clk);
 		err = clk_prepare_enable(kbdev->clock);
 		if (err) {
 			dev_err(kbdev->dev,
