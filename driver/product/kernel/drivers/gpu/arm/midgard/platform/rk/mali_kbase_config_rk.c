@@ -107,26 +107,6 @@ static void kbase_device_runtime_disable(struct kbase_device *kbdev)
 }
 #endif
 
-static int pm_regulator_enable(struct kbase_device *kbdev)
-{
-	dev_dbg(kbdev->dev, "pm_regulator_enable\n");
-
-	if (!kbdev->regulator)
-		return 0;
-
-	return regulator_enable(kbdev->regulator);
-}
-
-static int pm_regulator_disable(struct kbase_device *kbdev)
-{
-	dev_dbg(kbdev->dev, "pm_regulator_disable\n");
-
-	if (!kbdev->regulator)
-		return 0;
-
-	return regulator_disable(kbdev->regulator);
-}
-
 static int pm_clk_enable(struct kbase_device *kbdev)
 {
 	dev_dbg(kbdev->dev, "pm_clk_enable\n");
@@ -153,16 +133,9 @@ static int pm_callback_runtime_on(struct kbase_device *kbdev)
 
 	dev_dbg(kbdev->dev, "pm_callback_runtime_on\n");
 
-	ret = pm_regulator_enable(kbdev);
-	if (ret) {
-		dev_err(kbdev->dev, "failed to enable regulator: %d\n", ret);
-		return ret;
-	}
-
 	ret = pm_clk_enable(kbdev);
 	if (ret) {
 		dev_err(kbdev->dev, "failed to enable clk: %d\n", ret);
-		pm_regulator_disable(kbdev);
 		return ret;
 	}
 
@@ -174,7 +147,6 @@ static void pm_callback_runtime_off(struct kbase_device *kbdev)
 	dev_dbg(kbdev->dev, "pm_callback_runtime_off\n");
 
 	pm_clk_disable(kbdev);
-	pm_regulator_disable(kbdev);
 }
 
 static void pm_callback_resume(struct kbase_device *kbdev)
