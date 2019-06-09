@@ -4078,6 +4078,7 @@ static void power_control_term(struct kbase_device *kbdev)
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 12, 0)) && defined(CONFIG_OF) \
 			&& defined(CONFIG_REGULATOR)
 	if (kbdev->regulator) {
+		regulator_disable(kbdev->regulator);
 		regulator_put(kbdev->regulator);
 		kbdev->regulator = NULL;
 	}
