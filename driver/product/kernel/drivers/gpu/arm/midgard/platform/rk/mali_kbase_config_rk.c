@@ -89,12 +89,18 @@ static int kbase_device_runtime_init(struct kbase_device *kbdev)
 		ret = -ENOSYS;
 	}
 
+	if (kbdev->clock)
+		clk_disable(kbdev->clock);
+
 	return ret;
 }
 
 static void kbase_device_runtime_disable(struct kbase_device *kbdev)
 {
 	dev_dbg(kbdev->dev, "kbase_device_runtime_disable\n");
+
+	if (kbdev->clock)
+		clk_enable(kbdev->clock);
 
 	pm_runtime_dont_use_autosuspend(kbdev->dev);
 	pm_runtime_disable(kbdev->dev);
