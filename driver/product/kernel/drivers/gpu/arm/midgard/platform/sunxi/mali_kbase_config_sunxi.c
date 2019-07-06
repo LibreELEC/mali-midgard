@@ -46,10 +46,10 @@ static int kbase_platform_init(struct kbase_device *kbdev)
 		reset_control_deassert(kbdev->mali_rst);
 	}
 
-	clk_set_rate(kbdev->clock, 432000000);
+	clk_set_rate(kbdev->clock, 312000000);
 
 	if (kbdev->regulator)
-		regulator_set_voltage(kbdev->regulator, 860000, INT_MAX);
+		regulator_set_voltage(kbdev->regulator, 810000, INT_MAX);
 
 	return 0;
 }
