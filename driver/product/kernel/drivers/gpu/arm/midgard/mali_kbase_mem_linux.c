@@ -2417,10 +2417,18 @@ void kbasep_os_process_page_usage_update(struct kbase_context *kctx, int pages)
 	if (mm) {
 		atomic_add(pages, &kctx->nonmapped_pages);
 #ifdef SPLIT_RSS_COUNTING
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(5, 5, 0))
 		add_mm_counter(mm, MM_FILEPAGES, pages);
 #else
+		atomic_long_add(pages, &mm->rss_stat.count[MM_FILEPAGES]);
+#endif
+#else
 		spin_lock(&mm->page_table_lock);
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(5, 5, 0))
 		add_mm_counter(mm, MM_FILEPAGES, pages);
+#else
+		atomic_long_add(pages, &mm->rss_stat.count[MM_FILEPAGES]);
+#endif
 		spin_unlock(&mm->page_table_lock);
 #endif
 	}
@@ -2445,10 +2453,18 @@ static void kbasep_os_process_page_usage_drain(struct kbase_context *kctx)
 
 	pages = atomic_xchg(&kctx->nonmapped_pages, 0);
 #ifdef SPLIT_RSS_COUNTING
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(5, 5, 0))
 	add_mm_counter(mm, MM_FILEPAGES, -pages);
 #else
+	atomic_long_add(pages, &mm->rss_stat.count[MM_FILEPAGES]);
+#endif
+#else
 	spin_lock(&mm->page_table_lock);
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(5, 5, 0))
 	add_mm_counter(mm, MM_FILEPAGES, -pages);
+#else
+	atomic_long_add(pages, &mm->rss_stat.count[MM_FILEPAGES]);
+#endif
 	spin_unlock(&mm->page_table_lock);
 #endif
 }
